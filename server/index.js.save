@@ -1,0 +1,1196 @@
+const express = require("express");
+const cors = require("cors");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
+// const con = require('./db/mysql');
+// require("./db/database");
+const verifyToken = require("./app/middleware/verifyToken");
+const transporter = require("./app/mail/verifyMail");
+// const User = require("./models/User");
+const User = require("./models/mysql/User");
+const SocialUser = require("./models/mysql/SocialUser");
+const SocialUserPage = require("./models/mysql/SocialUserPage");
+const UserPost = require("./models/mysql/UserPost");
+const { Json } = require("sequelize/lib/utils");
+const { Op } = require('sequelize');
+const multer = require('multer');
+const cron = require('node-cron');
+const axios = require('axios');
+const http = require('http'); // for live
+//const https = require('https'); // for localhost
+const fs = require('fs');
+const moment = require('moment-timezone');
+
+const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const upload = multer({
+    storage:multer.diskStorage({
+        destination:function(req,file,cb){
+            cb(null,"public/uploads/posts")
+        },
+        filename:function(req,file,cb){
+            cb(null,file.fieldname+"-"+Date.now()+".jpg")
+        }
+    })
+}).single("upload_img");
+
+require('dotenv').config();
+
+const app = express();
+const route = express.Router();
+
+const serverPort = process.env.LOCAL_PORT;
+const secretKey = process.env.JWT_SECRET;
+const facebookAPPID = process.env.facebook_APP_ID;
+const facebookAPPSecret = process.env.facebook_APP_Secret;
+const FRONTEND_URL = process.env.FRONTEND_URL;
+const BACKEND_URL = process.env.BACKEND_URL;
+
+app.use(cors());
+app.use(cors({
+    origin: `${FRONTEND_URL}`,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: false // if you're sending cookies/session data
+  }));
+app.use(express.static('public'));    
+
+// const options = {
+//     key: fs.readFileSync('ssl/server.key'),
+//     cert: fs.readFileSync('ssl/server.cert')
+// };
+
+// This code for localhost
+    //const privateKey = fs.readFileSync('privkey.pem', 'utf8');
+    //const certificate = fs.readFileSync('fullchain.pem', 'utf8');
+    //const credentials = { key: privateKey, cert: certificate };
+    //const server = https.createServer(credentials, app);
+// End This code for localhost
+
+//const server = https.createServer(options, app);
+
+// This code for live
+    const server = http.createServer(app);
+// This code for live
+
+const prefix = 'api';
+app.use(express.json());
+
+// Apply middleware globally or selectively depending on the requirement
+route.use(verifyToken);
+
+// Define routes
+app.use(`/${prefix}`, route);
+
+// mongodb urls
+app.get('/', (req, resp) => {
+    resp.json({ data: 'Welcome to the API!' });
+});
+
+app.get('/apis', (req, resp) => {
+    resp.json({ data: 'API Route' });
+});
+
+app.post('/signup', async (req, resp) => {    
+    try {
+        const { firstName, lastName, email, password } = req.body;
+        //for mongodb
+        //const existingUser = await User.findOne({ email });
+
+       //for mysql
+        //const existingUser = (await User.findOne({ where:[{'email':email},{'status':1}] }));
+        const existingUser = (await User.findOne({ where:{'email':email} }));
+        if (existingUser) {
+            const checkStatus = (await User.findOne({ where:[{'email':email},{'status':true}] }));
+            if(checkStatus){
+                return resp.status(400).json({ message: "Email already exist and verified." });
+            }
+            return resp.status(400).json({ message: "Email already exist." });
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const uuid = uuidv4();
+        // const otp = crypto.randomInt(100000, 999999);
+        // const timestamps = new Date();
+        const newUser = new User({
+            uuid: uuid,
+            firstName,
+            lastName,
+            email,
+            password: hashedPassword,
+            // otp: otp,
+            // otpGeneratedAt: timestamps
+        });
+        const savedUser = await newUser.save();
+
+        if(!savedUser){
+            resp.status(500).json({ message: "Failed to save user" });
+        }
+        
+        const mailOptions = {
+            from: 'insocialvise@gmail.com',
+            to: email,
+            subject: 'InsocialVise account verification mail.',
+            // text: `Hello ${newUser.firstName},\n\nYour OTP code is: ${otp}\nIt is valid for 10 minutes.\n\nThank you!`,
+            html: `<p>Hello ${newUser.firstName} ${newUser.lastName},\n\n
+                        To complete the verification process, click <a href="${process.env.FRONTEND_URL}/email-verified-process/${newUser.uuid}" target="_blank">here</a>.
+                    </p>`
+        };
+
+        transporter.sendMail(mailOptions, (err, info) => {
+            if (err) {
+                console.error('Error sending email:', err);
+                return resp.status(500).json({ message: "Error sending email.", error: err.message });
+            }
+            // console.log(info);
+            return resp.status(200).json({ message: "Registertion successfully compeleted and verification mail sent to your email.",email: savedUser.email });
+        });
+
+        // savedUser ? resp.status(201).json(
+        //     { message: "Registertion successfully compeleted.", user_id: savedUser.uuid }) : 
+        //         resp.status(500).json(
+        //     { message: "Failed to save user" });
+    } catch (err) {       
+        if (err.name === "ValidationError") {
+          return resp.status(400).json({ message: "Validation failed.", error: err.errors });
+        }
+        resp.status(500).json({ message: "Error creating user.", error: err.message });
+    }
+});
+
+app.post('/sign-in', async (req, resp) => {
+    try {
+        const { email, password } = req.body;
+        if (email && password) {
+            // for mongodb
+            // const userData = await User.findOne({ email }).where('status', 1);
+
+            // for mysql
+            const userData = await User.findOne({where:{email:email}});
+            if(userData != null) {
+                //const userStatus = await User.findOne({where:{status:true}});
+                if(userData.status === true){
+                    const passwordMatch = await bcrypt.compare(password, userData.password);
+                    if (passwordMatch) {                        
+                        // Sign the JWT and include expiration time
+                        jwt.sign({ userData }, secretKey, async(err, token) => {
+                            if (err) {
+                                return resp.status(500).json({ message: "Error generating token", error: err.message });
+                            }
+                            
+                            const decodedToken = jwt.decode(token);  // Decodes the token without verifying it
+                            const expirationTime = decodedToken.exp;
+                            const { uuid,otp,otpGeneratedAt,password, ...userDatanew } = userData.dataValues;
+                            const social_user_data = await SocialUser.findOne({where:{user_id:userData.dataValues.uuid}});
+                            if(social_user_data){
+                                const social_page_data =  await SocialUserPage.findAll({ where: { social_userid: social_user_data.dataValues.social_id } });
+                                if(social_page_data){
+                                    resp.status(200).json({
+                                        message: 'Login successful.',
+                                        token: token,
+                                        expirationTime: expirationTime,
+                                        userInfo: {
+                                            userData: userDatanew,
+                                            socialData: social_user_data.dataValues,
+                                            socialPage: social_page_data
+                                        }
+                                    });
+                                }else{
+                                    resp.status(200).json({
+                                        message: 'Login successful.',
+                                        token: token,
+                                        expirationTime: expirationTime,
+                                        userInfo: {
+                                            userData: userDatanew,
+                                            socialData: social_user_data.dataValues,
+                                            socialPage: null
+                                        }
+                                    });
+                                }
+                            }else{
+                                resp.status(200).json({
+                                    message: 'Login successful.',
+                                    token: token,
+                                    expirationTime: expirationTime,
+                                    userInfo: {
+                                        userData: userDatanew,
+                                        socialData: null,
+                                        socialPage: null
+                                    }
+                                });
+                            }
+                            
+                        });
+                    } else {
+                        return resp.status(401).json({ message: "Invalid password." });
+                    }
+                }else{
+                    return resp.status(401).json({ message: "Email not verified.", email: userData.email });
+                }
+            } else {
+                return resp.status(401).json({ message: "Invalid email address." });
+            }
+        } else {
+            return resp.status(401).json({ message: "Invalid details" });
+        }
+    } catch (err) {
+        if (err.name === "ValidationError") {
+            return resp.status(400).json({ message: "Validation failed.", error: err.errors });
+        }
+        resp.status(500).json({ message: "Error during login.", error: err });
+    }
+});
+
+app.post('/resend-email',async(req, resp)=>{
+    try {
+        const { email } = req.body;
+        if (email) {
+            const userData = await User.findOne({where:{email:email}});
+            if (userData != null) {
+                //const userStatus = await User.findOne({where:{status:false}});
+                if(userData.status === false){
+                    const mailOptions = {
+                        from: 'insocialvise@gmail.com',
+                        to: email,
+                        subject: 'InsocialVise account verification mail.',
+                        // text: `Hello ${newUser.firstName},\n\nYour OTP code is: ${otp}\nIt is valid for 10 minutes.\n\nThank you!`,
+                        html: `<p>Hello ${userData.firstName} ${userData.lastName},\n\n
+                                    To complete the verification process, click <a href="${process.env.FRONTEND_URL}/email-verified-process/${userData.uuid}" target="_blank">here</a>.
+                                </p>`
+                            };
+            
+                    transporter.sendMail(mailOptions, (err, info) => {
+                        if (err) {
+                            //console.error('Error sending email:', err);
+                            return resp.status(500).json({ message: "Error sending email.", error: err.message });
+                        }
+                        return resp.status(200).json({ message: "Verification mail sent to your email." });
+                    });
+                }else{
+                    return resp.status(401).json({ message: "Email already verified." });
+                }
+            } else {
+                return resp.status(401).json({ message: "Invalid email address." });
+            }
+        } else {
+            return resp.status(401).json({ message: "Invalid details" });
+        }
+    } catch (err) {
+        if (err.name === "ValidationError") {
+            return resp.status(400).json({ message: "Validation failed.", error: err.errors });
+        }
+        resp.status(500).json({ message: "Error during resending mail.", error: err.message });
+    }
+});
+
+app.get('/email-verified-process/:uuid', async(req,resp)=>{
+    try {
+        const uuid = req.params.uuid;
+        //const {uuid} = req.body;
+        if (uuid) {
+            const userData = await User.findOne({ where:[{uuid:uuid}] });
+            if (userData) {
+                jwt.sign({ userData }, secretKey, async (err, token) => {
+                    if (err) {
+                        return resp.status(500).json({ message: "Error generating token", error: err.message });
+                    }
+                    
+                    const decodedToken = jwt.decode(token);
+                    const expirationTime = decodedToken.exp;
+                    const updateUser = await userData.update({ status:true, otp:null, otpGeneratedAt:null }); 
+                    const { uuid,otp,otpGeneratedAt,password, ...userDatanew } = userData.dataValues;
+                    const social_user_data = await SocialUser.findOne({where:{user_id:userData.dataValues.uuid}});
+                    if(social_user_data){
+                        const social_page_data =  await SocialUserPage.findAll({ where: { social_userid: social_user_data.dataValues.social_id } });
+                        if(social_page_data){
+                            resp.status(200).json({
+                                message: 'Account verified & Logged In successful.',
+                                token: token,
+                                expirationTime: expirationTime,
+                                userInfo: {
+                                    userData: userDatanew,
+                                    socialData: social_user_data.dataValues,
+                                    socialPage: social_page_data
+                                }
+                            });
+                        } else {
+                            resp.status(200).json({
+                                message: 'Account verified & Logged In successful.',
+                                token: token,
+                                expirationTime: expirationTime,
+                                userInfo: {
+                                    userData: userDatanew,
+                                    socialData: social_user_data.dataValues,
+                                    socialPage: null
+                                }
+                            });
+                        }
+                    }else{
+                        resp.status(200).json({
+                            message: 'Account verified & Logged In successful.',
+                            token: token,
+                            expirationTime: expirationTime,
+                            userInfo: {
+                                userData: userDatanew,
+                                socialData: null,
+                                socialPage: null
+                            }
+                        });
+                    }
+                    
+                    resp.status(500).json(
+                        { message: "Failed to update user status." });
+                });
+            } else {
+                return resp.status(401).json({ message: "User Data not found." });
+            }
+        } else {
+            return resp.status(401).json({ message: "Invalid User" });
+        }
+    } catch (err) {
+        if (err.name === "ValidationError") {
+            return resp.status(400).json({ message: "Validation failed.", error: err.errors });
+        }
+        resp.status(500).json({ message: "Error during verification.", error: err.message });
+    }
+});
+
+app.post('/forget-password', async(req,resp)=>{
+    try {
+        const { email } = req.body;
+        if (email) {
+            const userData = await User.findOne({where:{email:email}});
+            if (userData != null) {
+                if(userData.status === true){
+                    const mailOptions = {
+                        from: 'insocialvise@gmail.com',
+                        to: email,
+                        subject: 'InsocialVise password change request',
+                        html: `<h3>Hello ${userData.firstName},</h3>
+                                <p>We get a request to change password on our side from your account.</p>
+                                <p>To change click on below button</p>
+                                <br>
+                                <center>
+                                    <a href="${process.env.FRONTEND_URL}/password-reset/${userData.uuid}" 
+                                        target="_blank"
+                                        style="background:black;color:white;border-radius:5px;padding:10px;">Change Password</a>.
+                                </center>`
+                    };
+            
+                    transporter.sendMail(mailOptions, (err, info) => {
+                        if (err) {
+                            return resp.status(500).json({ message: "Error sending email.", error: err.message });
+                        }
+                        return resp.status(200).json({ message: "Password reset mail sent to your email." });
+                    });
+                }else{
+                    return resp.status(401).json({ message: "Please verify your account first." });
+                }
+            } else {
+                return resp.status(401).json({ message: "Invalid email address." });
+            }
+        } else {
+            return resp.status(401).json({ message: "Invalid details" });
+        }
+    } catch (err) {
+        if (err.name === "ValidationError") {
+            return resp.status(400).json({ message: "Validation failed.", error: err.errors });
+        }
+        resp.status(500).json({ message: "Error during resending mail.", error: err.message });
+    }
+});
+
+app.get('/password-reset/:uuid', async(req,resp)=>{
+    try {
+        const uuid = req.params.uuid;
+        if (uuid) {
+            const userData = await User.findOne({ where:{uuid:uuid} });
+            if (userData != null) {
+                if(userData.status === true){
+                    resp.status(200).json({
+                        message: 'Password reset request verified successfully.',
+                        email: userData.email,
+                        uuid: userData.uuid
+                    });
+                }else{
+                    return resp.status(401).json({ message: "Your account is not verified." });
+                }
+            } else {
+                return resp.status(401).json({ message: "User data not found." });
+            }
+        } else {
+            return resp.status(401).json({ message: "Invalid Data." });
+        }
+    } catch (err) {
+        if (err.name === "ValidationError") {
+            return resp.status(400).json({ message: "Validation failed.", error: err.errors });
+        }
+        resp.status(500).json({ message: "Error during password-reset.", error: err.message });
+    }
+});
+
+app.post('/password-reset-submit', async(req,resp)=>{ 
+    try {
+        const {uuid,email,password,confirm_pass} = req.body;
+        if (uuid && email && password && confirm_pass) {
+            if(password === confirm_pass){
+                const userData = await User.findOne({ where:{email:email,uuid:uuid} });
+                if (userData != null) {
+                    if(userData.status === true){
+
+                        const hashedPassword = await bcrypt.hash(password, 10);
+                        const updateUser = await userData.update({ password:hashedPassword }); 
+
+                        updateUser ? resp.status(200).json({ message: 'Password reset successfully.' }) : 
+                            resp.status(500).json({ message: "Failed to update account's password." });
+                    }else{
+                        return resp.status(401).json({ message: "Your account is not verified." });
+                    }
+                } else {
+                    return resp.status(401).json({ message: "User data not found." });
+                }
+            }else{
+                return resp.status(401).json({ message: "Password & Confirm Password field not matched." });
+            }
+        } else {
+            return resp.status(401).json({ message: "Invalid Data." });
+        }
+    } catch (err) {
+        if (err.name === "ValidationError") {
+            return resp.status(400).json({ message: "Validation failed.", error: err.errors });
+        }
+        resp.status(500).json({ message: "Error during password-reset.", error: err.message });
+    }
+});
+
+app.post(`/${prefix}/profile`, async (req, resp) => {
+    const token = req.token;
+    // console.log('Token:', token);
+    // const decoded = jwt.decode(token); 
+    // console.log('Decoded Token:', decoded);
+    
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }
+
+    jwt.verify(token, secretKey, (err, authData) => {
+        if (err) {
+            console.error('Error verifying token:', err); // Log the error
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            const { uuid,otp,otpGeneratedAt,password, ...userData } = authData.userData;  // Exclude password and some other data
+            return resp.status(200).json({ message: "Success", data: userData });
+        }
+    });
+});
+
+app.post(`/${prefix}/profileUpdate`, async (req, resp) => {
+    const data = req.body;
+    const token = req.token;
+    
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }
+    
+    if(Object.keys(data).length !== 0){
+        jwt.verify(token, secretKey, async(err, authData) => {
+            if (err) {
+                console.error('Error verifying token:', err);
+                return resp.status(401).json({ message: "Token not valid." });
+            } else {
+                const getUserData = await User.findOne({ where:{uuid:authData.userData.uuid} });
+                const updateUser = await getUserData.update(data); 
+    
+                return updateUser ? resp.status(200).json({ message: 'Profile Updated successfully.' }) : 
+                    resp.status(500).json({ message: "Failed to update profile data." });
+            }
+        });
+    }else{
+        return resp.status(401).json({ message: "No Data given to update." });
+    }
+    
+});
+
+app.post(`/${prefix}/social_account_submit`, async (req,resp)=>{
+    // console.log(req.body);
+    const token = req.token;
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }
+    jwt.verify(token, secretKey, async(err, authData) => {
+        if (err) {
+            console.error('Error verifying token:', err);
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            const { otp,otpGeneratedAt,password, ...userData } = authData.userData;
+            const existingUser = await SocialUser.findOne({where:{user_id:userData.uuid}});
+            const pictureData = req.body.data.picture;
+            if(!existingUser){
+                const newSocialUser = new SocialUser({
+                    user_id: userData.uuid,
+                    name: req.body.data.name,
+                    img_url: pictureData.data.url,
+                    social_id: req.body.data.id,
+                    user_token: req.body.accessToken,
+                    status: "Connected"
+                });
+                const savedSocialUser = await newSocialUser.save();
+        
+                if(!savedSocialUser){
+                    return resp.status(500).json({ message: "Failed to save Social Profile.",
+                        userInfo: { socialData: existingUser }
+                    });
+                }else{
+                    return resp.status(200).json({ message: "Social Profile Data Saved Successfully.",
+                        userInfo: { socialData: savedSocialUser }
+                    });
+                }
+            }
+
+            const updatedProfile = await existingUser.update({
+                img_url: pictureData.data.url,
+                user_token: req.body.accessToken,
+                token_access_expiration_time: req.body.data_access_expiration_time,
+                status: "Connected"
+            });
+
+            return resp.status(200).json({ message: "User token updated.",
+                userInfo: {
+                    socialData: updatedProfile,
+                }
+            });
+        }
+    });
+});
+
+app.post(`/${prefix}/social_page_submit`, async (req,resp)=>{
+    //console.log(req.body);
+    const token = req.token;
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }
+    jwt.verify(token, secretKey, async(err, authData) => {
+        if (err) {
+            console.error('Error verifying token:', err);
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            const { otp,otpGeneratedAt,password, ...userData } = authData.userData;
+            const existingUser = await SocialUser.findOne({where:{user_id:userData.uuid}});
+            if(existingUser != null){
+                if(!req.body.token){
+                    return resp.status(401).json({ message: "Facebook Page Token not found." });
+                }
+                for (const page of req.body.data.data) {
+                    const existingPage = await SocialUserPage.findOne({ where: { pageId: page.id } });
+                    if (!existingPage) {
+                        await SocialUserPage.create({
+                            user_uuid: userData.uuid,
+                            social_userid: existingUser.social_id,
+                            pageName: page.name,
+                            pageId: page.id,
+                            category: page.category,
+                            token: req.body.token,
+                            modify_to: JSON.stringify(page.tasks),
+                        });
+                    } else {
+                        checkExistence = true;
+                        await existingPage.update({
+                            pageName: page.name,
+                            category: page.category,
+                            token: req.body.token,
+                            modify_to: JSON.stringify(page.tasks),
+                        });
+                    }
+                }
+
+                const social_page_data =  await SocialUserPage.findAll({ where: { social_userid: existingUser.social_id } });
+
+                // if (checkExistence) {
+                //     return resp.status(200).json({ 
+                //         message: "Connected Successfully.",
+                //         userInfo: {
+                //             userData: userData,
+                //             socialData: existingUser,
+                //             socialPage: social_page_data
+                //         }
+                //     });
+                // } else {
+                //     return resp.status(200).json({
+                //         message: "Connected & Saved Data Successfully.",
+                //         userInfo: {
+                //             userData: userData,
+                //             socialData: existingUser,
+                //             socialPage: social_page_data
+                //         }
+                //     });
+                // }
+                return resp.status(200).json({
+                    message: "Connected & Saved Data Successfully.",
+                    userInfo: {
+                        userData: userData,
+                        socialData: existingUser,
+                        socialPage: social_page_data
+                    }
+                });     
+            } else {
+                return resp.status(200).json({ message: "User Social Profile Data Not Found."});
+            }
+        }
+    });
+});
+
+app.post(`/${prefix}/create-post`, upload, async (req,resp)=>{    
+    const token = req.token;
+    console.log('bosy',req.body);
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }
+    jwt.verify(token, secretKey, async(err, authData) => {
+        if (err) {
+            console.error('Error verifying token:', err);
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            if(req.body.page_id != null && req.body.socialUserID != null && req.body.content != null && 
+                req.body.status != null){
+                const { otp,otpGeneratedAt,password, ...userData } = authData.userData;
+                const existingPage = await SocialUserPage.findOne(
+                    { where: { pageId:req.body.page_id, social_userid: req.body.socialUserID } }
+                );
+                if(existingPage){
+                    //let seconds = 0;
+                    //const datetimeValue = req.body.schedule_time; // example-format="2024-12-11T15:30"
+                    // if (datetimeValue) {
+                    //     const date = new Date(datetimeValue);
+                    //     seconds = Math.floor(date.getTime() / 1000);
+                    // } else {
+                    //     seconds = '';
+                    // }
+
+                    let postMedia = '';
+                    if(req.file){
+                        //console.log(req.file);
+                        postMedia = JSON.stringify({"img_path": req.file['filename']});
+                    }
+                    if(req.body.platform_post_id!=''){
+                        var platform_post_id = req.body.platform_post_id; 
+                    } else {
+                        var platform_post_id = ''; 
+                    }
+                    const newPost = await UserPost.create({
+                        user_uuid: userData.uuid,
+                        social_user_id: req.body.socialUserID,
+                        page_id: req.body.page_id,
+                        content: req.body.content,
+                        schedule_time: req.body.schedule_time,
+                        post_media: postMedia,
+                        platform_post_id:platform_post_id,
+                        status: req.body.status
+                    });
+            
+                    if(!newPost){
+                        return resp.status(500).json({ message: "Failed to save Post Data." });
+                    }else{
+                        return resp.status(200).json({ message: "Post Saved Successfully."});
+                    }
+                }
+                return resp.status(401).json({message:"Page ID does not match with the current social ID."});
+            }else{
+                return resp.status(401).json({message:"All fields are required."});
+            }
+        }
+    });
+});
+
+app.post(`/${prefix}/edit-post`, async (req, resp) => {
+    const token = req.token;    
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }
+    jwt.verify(token, secretKey, async (err) => {
+        if (err) {
+            console.error('Error verifying token:', err);
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            try {  
+                const { post_id, page_id } = req.body;
+                if (!post_id || !page_id) {
+                    return resp.status(400).json({ message: "Missing required fields." });
+                }  
+                const getPost = await UserPost.findOne({
+                    where: { 
+                        id: post_id,
+                        page_id: page_id
+                    }
+                });
+                if(getPost) {
+                    const socialPageData = await SocialUserPage.findOne({
+                        where: { pageId: getPost.page_id }
+                    });
+
+                    // If social page data is found, return the combined post and page data
+                    if (socialPageData) {
+                        const { category,modify_to,user_uuid,social_userid,createdAt, updatedAt, id, ...userData } = socialPageData.dataValues;
+                        const postDetail = { ...getPost.toJSON(), pageData: userData };
+                        return resp.status(200).json({ message: "Post fetched successfully", postDetail });
+                    } else {
+                        return resp.status(404).json({ message: "Social page data not found." });
+                    }                       
+                    
+                } else {
+                    return resp.status(404).json({ message: "The requested resource could not be found on the server." });
+                }
+            } catch (error) {
+                console.error("Error fetching post:", error);
+                return resp.status(500).json({ message: "Internal server error", error: error.message });
+            }
+        }
+    });
+});
+
+app.post(`/${prefix}/update-post`, upload, async (req, resp) => {
+    const token = req.token;    
+    if(!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }
+    
+    jwt.verify(token, secretKey, async (err) => {
+        if (err) {
+            console.error('Error verifying token:', err);
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            try {            
+                //const { postID, socialUserID, pageid} = req.body;
+
+                // Validate the required fields
+                // if (!postID || !socialUserID || !pageid) {
+                //     return resp.status(400).json({ message: "Missing required fields." });
+                // }
+
+                let postMedia = '';
+                if(req.file) {
+                    postMedia = JSON.stringify({ "img_path": req.file['filename'] });
+                }
+
+                // Try to find the post
+                const userPost = await UserPost.findOne({
+                    where: { 
+                        id: req.body.postID,
+                        social_user_id: req.body.socialUserID,
+                        page_id: req.body.pageid
+                    }
+                });
+
+                if (userPost) {
+                    // If post exists, update it
+                    const updatedPost = await UserPost.update({
+                        content: req.body.content || userPost.content,  // Keep the old content if not provided
+                        schedule_time: req.body.schedule_time || userPost.schedule_time,
+                        post_media: postMedia || userPost.post_media,
+                        status: req.body.status || userPost.status,
+                        platform_post_id: req.body.platform_post_id || userPost.platform_post_id,
+                    }, {
+                        where: { id: req.body.postID, social_user_id: req.body.socialUserID, page_id: req.body.pageid }
+                    });
+
+                    if (updatedPost[0] === 0) {
+                        return resp.status(500).json({ message: "Failed to update Post Data." });
+                    } else {
+                        return resp.status(200).json({ message: "Post updated successfully." });
+                    }
+
+                } else {
+                    return resp.status(404).json({ message: "The requested resource could not be found on the server." });
+                }
+
+            } catch (error) {
+                console.error("Error fetching or updating post:", error);
+                return resp.status(500).json({ message: "Internal server error", error: error.message });
+            }
+        }
+    });
+});
+
+app.post(`/${prefix}/delete-post`, async (req, resp) => {
+    const token = req.token;    
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }
+    
+    jwt.verify(token, secretKey, async (err) => {
+        if (err) {
+            console.error('Error verifying token:', err);
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            try {                
+                const { postID, socialUserID, postPageID } = req.body;
+                // Validate the fields
+                if (!postID || !socialUserID || !postPageID) {
+                    return resp.status(400).json({ message: "Missing required fields." });
+                }
+                // Try to find the post
+                const userPosts = await UserPost.findOne({
+                    where: { 
+                        id: postID,
+                        social_user_id: socialUserID,
+                        page_id: postPageID
+                    }
+                });
+                if (userPosts) {
+                    await userPosts.destroy();
+                    const userSchedulePosts = await UserPost.findAll({
+                        where: { 
+                            social_user_id: socialUserID,
+                            schedule_time: { [Op.ne]: null, [Op.ne]: '' } 
+                        }
+                    });
+                    const users_Posts = await Promise.all(
+                        userSchedulePosts.map(async (post) => {
+                            const socialPageData = await SocialUserPage.findOne({
+                                where: { pageId: post.page_id }
+                            });
+                            const { category,modify_to,user_uuid,social_userid,createdAt,updatedAt,id, ...userData } = socialPageData.dataValues;
+                            return { ...post.toJSON(), pageData: userData }; 
+                        })
+                    );
+                    return resp.status(200).json({ message: "Post delete successfully", userSchedulePosts: users_Posts });                    
+                } else {            
+                    return resp.status(404).json({ message: "The requested resource could not be found on the server." });
+                }
+                    
+            } catch (error) {
+                console.error("Error fetching post:", error);
+                return resp.status(500).json({ message: "Internal server error", error: error.message });
+            }
+        }
+    });
+});
+
+app.post(`/${prefix}/posts`, async (req, resp) => {
+    const token = req.token;    
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    } 
+
+    jwt.verify(token, secretKey, async(err, authData) => {
+        if(err) {            
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            const { id,firstName,role,otp,status,otpGeneratedAt,password,createdAt,updatedAt, ...userData } = authData.userData;
+            
+            try {
+                const userSchedulePosts = await UserPost.findAll({
+                    where: { 
+                        user_uuid: userData.uuid
+                    },
+                    order: [
+                        ['id', 'DESC']
+                    ]        
+                });
+                const userPosts = await Promise.all(
+                    userSchedulePosts.map(async (post) => {
+                        const socialPageData = await SocialUserPage.findOne({
+                            where: { user_uuid: post.user_uuid }
+                        });
+                        const { category,modify_to,user_uuid,social_userid,pageId,createdAt,updatedAt,id, ...userData } = socialPageData.dataValues;
+                        return { ...post.toJSON(), pageData: userData }; 
+                    })
+                ); 
+                return resp.status(200).json({ message: "success",userPosts:userPosts });
+            } catch (error) {
+                console.error("Error fetching SocialUserPage:", error);
+                return resp.status(500).json({ message: "Internal server error" });
+            }
+        }
+    });    
+});
+
+app.post(`/${prefix}/post-delete`, async (req, resp) => {
+    const token = req.token;    
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }
+    jwt.verify(token, secretKey, async(err, authData) => {
+        if(err) {           
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            const { id,firstName,role,otp,status,otpGeneratedAt,password,createdAt,updatedAt, ...userData } = authData.userData;
+            try {   
+                const userPost = await UserPost.findOne({
+                    where: { 
+                        id: req.body.postID,
+                        user_uuid: userData.uuid
+                    }
+                });
+                if(userPost) {
+                    await userPost.destroy();
+                    const userPosts = await UserPost.findAll({
+                        where: { 
+                            user_uuid: userData.uuid                             
+                        },
+                        order: [
+                            ['createdAt', 'DESC']
+                        ]
+                    });
+                    const users_Posts = await Promise.all(
+                        userPosts.map(async (post) => {
+                            const socialPageData = await SocialUserPage.findOne({
+                                where: { pageId: post.page_id }
+                            });
+                            const { createdAt,updatedAt,id, ...userData } = socialPageData.dataValues;
+                            return { ...post.toJSON(), pageData: userData }; 
+                        })
+                    );
+                    return resp.status(200).json({ message: "Post delete successfully", userPostlist: users_Posts });
+                                       
+                } else {            
+                    return resp.status(404).json({ message: "The requested resource could not be found on the server." });
+                }
+            } catch (error) {
+                console.error("Error fetching post:", error);
+                return resp.status(500).json({ message: "Internal server error", error: error.message });
+            }
+        }
+    });    
+});
+
+app.post(`/${prefix}/scheduled-posts`, async (req, resp) => {
+    const token = req.token;    
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }    
+    jwt.verify(token, secretKey, async(err, authData) => {
+        if(err) {           
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            const { id,firstName,role,otp,status,otpGeneratedAt,password,createdAt,updatedAt, ...userData } = authData.userData;
+            try {
+                const userSchedulePosts = await UserPost.findAll({
+                    where: {
+                        user_uuid: userData.uuid, 
+                        //social_user_id: req.body.socialUserID,
+                        schedule_time: { [Op.ne]: null, [Op.ne]: '' }, // filters out data i.e. null or an empty string
+                        status: '2'
+                    }            
+                });
+                // Add SocialUserPage data for each post
+                const enrichedPosts = await Promise.all(
+                    userSchedulePosts.map(async (post) => {
+                        const socialPageData = await SocialUserPage.findOne({
+                            where: { pageId: post.page_id }
+                        });
+                        const { createdAt,updatedAt,id, ...userData } = socialPageData.dataValues;
+                        return { ...post.toJSON(), pageData: userData }; // Combine post and page data
+                    })
+                );
+
+                return resp.status(200).json({ message: "Success", userSchedulePosts: enrichedPosts });
+            } catch (error) {
+                console.error("Error fetching SocialUserPage:", error);
+                return resp.status(500).json({ message: "Internal server error" });
+            }
+        }
+    });
+});
+
+app.post(`/${prefix}/user-disconnect`, async (req, resp) => {
+    const token = req.token;    
+    if (!token) {
+        return resp.status(401).json({ message: "No token provided." });
+    }
+    
+    jwt.verify(token, secretKey, async(err, authData) => {
+        if (err) {
+            console.error('Error verifying token:', err);
+            return resp.status(401).json({ message: "Token not valid." });
+        } else {
+            const getUserData = await SocialUser.findOne({ where:{user_id:authData.userData.uuid} });
+            const updateUser = await getUserData.update({
+                status: "notConnected"
+            }); 
+
+            return updateUser ? resp.status(200).json({ message: 'Profile Disconnected successfully.', 
+                userInfo: {
+                    socialData: getUserData,
+                } }) : 
+                resp.status(500).json({ message: "Failed to Disconnect." });
+        }
+    });    
+});
+
+// Extend facebook page and user access token
+cron.schedule('0 0 1 * *', async () => {    
+    try {
+        const users = await SocialUser.findAll();
+        const socialPageData = await SocialUserPage.findAll({
+            where: {
+                social_userid: users.map(user => user.social_id) 
+            }
+        });
+        const userWithPageData = [];
+        for (const user of users) {            
+            const pageData = socialPageData.find(page => page.social_userid === user.social_id);
+            await extendUserToken(user.user_token, pageData.social_userid, pageData.pageId);
+            const { id, email, img_url, user_id, status, createdAt, updatedAt, ...userData } = user.toJSON();
+            const { createdAt: pageCreatedAt, updatedAt: pageUpdatedAt, id: pageId, category: pageCategory, modify_to: pageModifyTo, social_userid, ...pageDataFiltered } = pageData ? pageData.dataValues : {};
+            userWithPageData.push({
+                ...userData,
+                pageData: pageDataFiltered
+            });
+        }
+        console.log('Successfully extended tokens and retrieved user data.');
+    } catch (error) {
+        console.error('Error in scheduled task:', error.message);
+    }
+});
+
+async function extendUserToken(userToken,userSocialID,userPageID) { 
+    const appId = facebookAPPID;
+    const appSecret = facebookAPPSecret;    
+    const url = `https://graph.facebook.com/v12.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${userToken}`;
+    try {
+        const response = await axios.get(url);        
+        //console.log('data',response.data.access_token,response.data.expires_in);
+        extendPageToken(response.data.access_token,userPageID);
+        const getUserData = await SocialUser.findOne({ where:{social_id:userSocialID} });
+        await getUserData.update({
+            user_token: response.data.access_token            
+        });               
+        //return response.data.access_token;
+    } catch (error) {
+        console.error('Error extending user token:', error);
+        throw error;
+    }
+}
+    
+async function extendPageToken(userToken,page_Id) {
+    const url = `https://graph.facebook.com/v12.0/${page_Id}?fields=access_token&access_token=${userToken}`;    
+    try {
+        const response = await axios.get(url);        
+        const updatePageToken = await SocialUserPage.findOne({ where:{pageId:page_Id} });
+        await updatePageToken.update({
+            token: response.data.access_token
+        });
+        //return response.data.access_token;
+    } catch (error) {
+        console.error('Error extending page token:', error);
+        throw error;
+    }
+}
+// End Extend facebook page and user access token
+
+// Get schedule posts for crop job post to facebook page
+cron.schedule('* * * * *', async () => { 
+    //app.post('/get-scheduled-posts', async (req, resp) => {
+        try {            
+            const currentTimestamp = moment.tz(localTimezone).unix();
+            const userSchedulePosts = await UserPost.findAll({
+                where: {                
+                    schedule_time: { 
+                        [Op.ne]: null, 
+                        [Op.ne]: '',
+                        [Op.gte]: currentTimestamp
+                    },
+                    status: '2'
+                }            
+            });
+    
+            const enrichedPosts = await Promise.all(
+                userSchedulePosts.map(async (post) => {          
+                    const socialPageData = await SocialUserPage.findOne({
+                        where: { pageId: post.page_id }
+                    });
+                    const { createdAt: pageCreatedAt, updatedAt: pageUpdatedAt, id: pageId, pageId: page_id, social_userid, pageName, category, modify_to, ...userData } = socialPageData.dataValues;
+                    return { ...post.toJSON(), pageData: userData }; // Combine post and page data
+                })
+            );
+    
+            if (enrichedPosts.length > 0) {
+                for (const postss of enrichedPosts) {
+                    if(postss.schedule_time==currentTimestamp){
+                                               
+                        if(postss.post_media && postss.post_media !== '') {                      
+                            const pageID = postss.page_id;
+                            const pageAccessToken = postss.pageData.token;
+                            const mediaData = JSON.parse(postss.post_media);
+                            const imgPath = BACKEND_URL+'/uploads/posts/'+mediaData.img_path;
+                            //const imgPath = 'https://superadmin.bebang.ph/uploads/aboutUs_images/1726734262_66ebdfb630246.webp';                                                                
+                                                
+                            try {
+                                const photoUrl = `https://graph.facebook.com/${pageID}/photos`;
+                                const formData = new FormData();
+                                formData.append('access_token', pageAccessToken);
+                                formData.append('url', imgPath);
+                                formData.append('caption', postss.content);
+                                const photoUploadResponse = await fetch(photoUrl, {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                const photoUploadResult = await photoUploadResponse.json();
+                                if(photoUploadResult.id) {
+                                    await UserPost.update({
+                                        status: "1"
+                                    }, {
+                                        where: { id: postss.id}
+                                    });
+                                    console.log('post with image');
+                                } else {
+                                    console.error(`Failed to upload photo: ${photoUploadResult.error.message}`);
+                                }
+                            } catch (error) {
+                                console.error(`Error posting image to Facebook: ${error.message}`);
+                            }                       
+                        } else {                        
+                            const pageID = postss.page_id;                 
+                            const url = `https://graph.facebook.com/${pageID}/feed`;
+                            const pageAccessToken = postss.pageData.token;
+                            const normalPostData = new FormData();
+                            normalPostData.append('message', postss.content);
+                            normalPostData.append('access_token', pageAccessToken);
+                            try {
+                                const postResponse = await fetch(url, {
+                                    method: 'POST',                        
+                                    body: normalPostData                        
+                                });
+
+                                const postResult = await postResponse.json();
+                                if (postResult.id) {
+                                    await UserPost.update({
+                                        status: "1"
+                                    }, {
+                                        where: { id: postss.id}
+                                    });
+                                    console.log(`Post successful for post ID:`);
+                                } else {
+                                    console.error(`Failed to postf: ${postResult.error.message}`);
+                                }
+                            } catch (error) {
+                                console.error(`Error posting to Facebook: ${error.message}`);
+                            }                                                  
+                        } 
+                    } else {
+                        console.log('not match');
+                    }                   
+                 }                
+            } else {                
+                console.error("message:", "Nothing to post");
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            //});    
+});
+// End Get schedule posts for crop job post to facebook page
+
+server.listen(serverPort, () => {
+    console.log(`Server is running on port ${serverPort}`);
+});
+
+// Connect to the database and start the server
+// connectDB().then(() => {
+//     app.listen(serverPort, () => {
+//         console.log(`Server is running on port ${serverPort}`);
+//     });
+// }).catch(err => {
+//     console.error("Database connection failed:", err);
+//     process.exit(1);
+// });
