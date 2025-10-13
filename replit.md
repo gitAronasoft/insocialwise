@@ -27,21 +27,6 @@ This will start:
 - Backend API on `http://0.0.0.0:3001`
 - Frontend React app on `http://0.0.0.0:5000`
 
-### Alternative Methods
-
-**Using the shell script:**
-```bash
-./start-all.sh
-```
-
-**Running servers individually:**
-```bash
-# Terminal 1 - Backend
-cd server && node index.js
-
-# Terminal 2 - Frontend  
-cd client && PORT=5000 HOST=0.0.0.0 npm start
-```
 
 ## Configuration
 
