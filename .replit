@@ -1,4 +1,4 @@
-modules = ["web", "nodejs-20"]
+modules = ["web", "nodejs-20", "bash"]
 
 [nix]
 channel = "stable-25_05"
@@ -10,3 +10,26 @@ externalPort = 80
 [[ports]]
 localPort = 5000
 externalPort = 5000
+
+[workflows]
+runButton = "app"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "app"
+
+[[workflows.workflow]]
+name = "app"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node install-and-start.js"
+
+[agent]
+expertMode = true
