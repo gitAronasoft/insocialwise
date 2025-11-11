@@ -10,7 +10,8 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import './assets/css/new-custom-style.css';
 import './assets/css/new-style.css';
-import "react-datepicker/dist/react-datepicker.css";
+import 'react-datepicker/dist/react-datepicker.css';
+import './assets/css/custom-responsive.css'
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

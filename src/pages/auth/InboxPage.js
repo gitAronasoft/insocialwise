@@ -34,10 +34,20 @@ const InboxPage = () => {
         });
         socketRef.current = socket;
 
-        /* join global room right after connect */
-        socket.emit('join_conversation', JSON.parse(localStorage.getItem('userinfo'))?.userData?.uuid);
+        socket.on('connect', () => {
+            const uuid = JSON.parse(localStorage.getItem('userinfo'))?.userData?.uuid;
+            if (uuid) socket.emit('join_conversation', uuid);
+        });
 
-        return () => socket.disconnect();
+        return () => {
+            socket.off('connect');
+            socket.disconnect();
+        };
+
+        // /* join global room right after connect */
+        // socket.emit('join_conversation', JSON.parse(localStorage.getItem('userinfo'))?.userData?.uuid);
+
+        // return () => socket.disconnect();
     }, [BACKEND_URL]);
 
     useEffect(() => {
@@ -131,7 +141,8 @@ const InboxPage = () => {
                         return prev;
                     }
 
-                    return { ...prev, messages: [...prev.messages, msg] };
+                    return { ...prev, messages: [...(prev.messages || []), msg] };
+                    // return { ...prev, messages: [...prev.messages, msg] };
                 });
             }
         };
@@ -678,7 +689,7 @@ const InboxPage = () => {
                                             onChange={e => setMessage(e.target.value)} style={{ flex: 1 }}/>
                                         <button type="submit" className="btn btn-primary messages-send-btn "> 
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send h-4 w-4"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg>
-                                            </button>
+                                        </button>
                                     </form>
                                 </div>
                             ) : (

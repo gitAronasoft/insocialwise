@@ -1,10 +1,39 @@
-import React from 'react';
+
+import React, { useState } from "react";
 import { Link,useLocation} from 'react-router-dom';
 
 export default function Sidebar() {  
   const location = useLocation();
-  return (
-    <div className="sidebar-wrapper" data-sidebar-layout="stroke-svg">
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);  
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+    
+    const header = document.querySelector(".page-header");
+    const footer = document.querySelector(".page-footer");
+    const body = document.querySelector(
+      ".page-wrapper.compact-wrapper .page-body-wrapper .page-body"
+    );
+
+    if (header && footer) {
+      if (!isSidebarCollapsed) {
+        header.style.marginLeft = "100px";
+        header.style.width = "calc(100% - 100px)";
+        footer.style.marginLeft = "100px";
+        footer.style.width = "calc(100% - 100px)";
+        body.style.marginLeft = "100px";
+      } else {
+        header.style.marginLeft = "265px";
+        header.style.width = "calc(100% - 265px)";
+        footer.style.marginLeft = "265px";
+        footer.style.width = "calc(100% - 265px)";
+        body.style.marginLeft = "265px";
+      }
+    }
+  };
+
+  return (   
+    <div className={`sidebar-wrapper ${isSidebarCollapsed ? "collapsed" : ""}`} data-sidebar-layout="stroke-svg">
       <div>
         <div className="logo-wrapper">
           {/* <Link to="/dashboard">
@@ -19,11 +48,11 @@ export default function Sidebar() {
                 <img className="img-fluid for-light" style={{ width: 25 }} src={`${process.env.PUBLIC_URL}/assets/images/logo/logo.svg`} alt="" />
               </div> */}
 
-              {/* <div class="logo-ican"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-zap h-7 w-7 text-white"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path></svg></div> */}
+              {/* <div className="logo-ican"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-zap h-7 w-7 text-white"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path></svg></div> */}
 
-                  <div class="logo-ican rounded-4 d-flex align-items-center justify-content-center">
+                  <div className="logo-ican rounded-4 d-flex align-items-center justify-content-center">
                     <img src={`${process.env.PUBLIC_URL}/assets/images/logo/in-social-icon.png`} alt="Logo" style={{ width: 50 }}/>
-                    {/* <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-zap">
+                    {/* <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-zap">
                       <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path>
                     </svg> */}
                   </div>
@@ -31,22 +60,74 @@ export default function Sidebar() {
                       <div className='d-flex flex-column '> 
                       <div className='logoname'>insocialwise </div>
                       <p> Social Media Dashboard </p>
+
                       </div>
+
+                      {/* <div> 
+                         <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                        <span className="navbar-toggler-icon"></span>
+                    </button>
+                      </div> */}
               </Link>
             </div>
 
+            <div> 
+               {/* <div className="toggle-sidebar-btn" onClick={toggleSidebar}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="feather feather-grid sidebar-toggle"
+          >
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          
+        </div> */}
 
-          {/* <div className="back-btn">
-            <i className="fa-solid fa-angle-left"></i>
-          </div>
-          <div className="toggle-sidebar" checked="checked">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-grid status_toggle middle sidebar-toggle">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
+
+            </div>
+
+{/* 
+          <div className="back-btn" onclick="collapseSidebar()">
+            <i className="fa-solid fa-angle-left collapseSidebar"></i>
           </div> */}
+          
+            {/* 🟢 Sidebar Toggle Button */}
+        <div className="toggle-sidebar" onClick={toggleSidebar}>
+          {/* <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="feather feather-grid sidebar-toggle"
+          >
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg> */}
+
+          <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0 0 24 24" className="feather feather-grid sidebar-toggle">
+<path d="M 2 5 L 2 7 L 22 7 L 22 5 L 2 5 z M 2 11 L 2 13 L 22 13 L 22 11 L 2 11 z M 2 17 L 2 19 L 22 19 L 22 17 L 2 17 z"></path>
+</svg>
+          
+        </div>
+      </div>
         </div>
         <div className="logo-icon-wrapper">
           <Link to="">
@@ -85,7 +166,7 @@ export default function Sidebar() {
                         <li className="sidebar-list">
                           <i className="fa-solid fa-thumbtack"></i>
                           <Link to="/dashboard" className={`sidebar-link sidebar-title link-nav ${location.pathname === '/dashboard' ? 'active' : ''}`}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-dashboard h-5 w-5"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg> <span>Dashboard</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-layout-dashboard h-5 w-5"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg><span>Dashboard</span>
                             <div className="according-menu">
                               <i className="fa-solid fa-angle-right"></i>
                             </div>
@@ -123,10 +204,9 @@ export default function Sidebar() {
                           </Link>
                         </li> */}
 
-                        <li className="sidebar-list">
+                        {/* <li className="sidebar-list">
                           <i className="fa-solid fa-thumbtack"></i>
                           <Link to="/posts-list" className={`sidebar-link sidebar-title link-nav ${location.pathname === '/posts-list' ? 'active' : ''}`}>
-                            {/* <i className={`fa-solid fa-list ${location.pathname === '/posts-list' ? 'iconActive' : ''}`}></i>  */}
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                               fill="none" viewBox="0 0 24 24" stroke="currentColor"
                               strokeWidth="2" strokeLinecap="round" className=""
@@ -139,7 +219,7 @@ export default function Sidebar() {
                               <i className="fa-solid fa-angle-right"></i>
                             </div>
                           </Link>
-                        </li>
+                        </li> */}
 
                         {/* <li className="sidebar-list">
                           <i className="fa-solid fa-thumbtack"></i>
@@ -191,7 +271,7 @@ export default function Sidebar() {
                           <Link to="/create-post" className={`sidebar-link sidebar-title link-nav ${location.pathname === '/create-post' ? 'active' : ''}`}>
                             {/* <i className={`fa-solid fa-edit ${location.pathname === '/create-post' ? 'iconActive' : ''}`}></i> <span>Create post</span> */} 
 
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus h-5 w-5"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-plus h-5 w-5"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
                              <span>Create post</span>
                             <div className="according-menu">
                               <i className="fa-solid fa-angle-right"></i>
@@ -203,7 +283,7 @@ export default function Sidebar() {
                           <i className="fa-solid fa-thumbtack"></i>
                           <Link to="/post-calendar" className={`sidebar-link sidebar-title link-nav ${location.pathname === '/post-calendar' ? 'active' : ''}`}>
                             {/* <i className={`fas fa-calendar-alt ${location.pathname === '/post-calendar' ? 'iconActive' : ''}`}></i>   */}
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar h-5 w-5"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-calendar h-5 w-5"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
                             <span>Post Calender</span>                            
                             <div className="according-menu">
                               <i className="fa-solid fa-angle-right"></i>
@@ -226,7 +306,7 @@ export default function Sidebar() {
                           <Link to="/analytics" className={`sidebar-link sidebar-title link-nav ${location.pathname === '/analytics' || location.pathname === '/facebook-analytics-detail' || location.pathname === '/linkedin-analytics-detail' ? 'active' : ''}`}>
                             {/* <i className={`fa-solid fa-chart-column ${location.pathname === '/analytics' || location.pathname === '/facebook-analytics-detail' || location.pathname === '/linkedin-analytics-detail' ? 'iconActive' : ''}`}></i> <span>Analytics</span>                             */}
 
-                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chart-column h-5 w-5"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg> <span>Analytics</span>  
+                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-chart-column h-5 w-5"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg> <span>Analytics</span>  
                             <div className="according-menu">
                               <i className="fa-solid fa-angle-right"></i>
                             </div>
@@ -237,7 +317,7 @@ export default function Sidebar() {
                           <i className="fa-solid fa-thumbtack"></i>
                           <Link to="/ads-campaign" className={`sidebar-link sidebar-title link-nav ${location.pathname === '/ads-campaign' || location.pathname === '/ads-campaign' || location.pathname === '/ads-campaign' ? 'active' : ''}`}>
                             {/* <i className={`fa-solid fa-bullhorn ${location.pathname === '/ads-campaign' || location.pathname === '/ads-campaign' || location.pathname === '/ads-campaign' ? 'iconActive' : ''}`}></i>  */}
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-megaphone h-5 w-5"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-megaphone h-5 w-5"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>
                             <span>Ads Campaign</span>                            
                             <div className="according-menu">
                               <i className="fa-solid fa-angle-right"></i>
@@ -253,7 +333,7 @@ export default function Sidebar() {
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                               fill="none"viewBox="0 0 24 24" stroke="currentColor"
                               strokeWidth="2" strokeLinecap="round"
-                              strokeLinejoin="round"className="me-2"
+                              strokeLinejoin="round"className=""
                             >
                               <path d="M4 13h3.439a.991.991 0 0 1 .908.6 3.978 3.978 0 0 0 7.306 0 .99.99 0 0 1 .908-.6H20" />
                               <path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6" />
@@ -270,7 +350,7 @@ export default function Sidebar() {
                           <i className="fa-solid fa-thumbtack"></i>
                           <Link to="/settings" className={`sidebar-link sidebar-title link-nav ${location.pathname === '/settings' || location.pathname === '/settings' || location.pathname === '/settings' ? 'active' : ''}`}>
                             {/* <i className={`fa-solid fa-gear ${location.pathname === '/settings' || location.pathname === '/settings' || location.pathname === '/settings' ? 'iconActive' : ''}`}></i>  */}
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings h-5 w-5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-settings h-5 w-5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                             <span>Settings</span>                            
                             <div className="according-menu">
                               <i className="fa-solid fa-angle-right"></i>
@@ -308,8 +388,8 @@ export default function Sidebar() {
                               </div>
                             </div>
                           </button>
-                          <button type="button" class="btn custom-btn-info dropdown-toggle dropdown-toggle-split w-25" data-bs-toggle="dropdown" aria-expanded="false">
-                            <span class="visually-hidden">Toggle Dropdown</span>
+                          <button type="button" className="btn custom-btn-info dropdown-toggle dropdown-toggle-split w-25" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span className="visually-hidden">Toggle Dropdown</span>
                           </button>
                           <ul className="dropdown-menu">
                             <li><Link className="dropdown-item" to="/my-profile">My Profile</Link></li>
@@ -332,6 +412,6 @@ export default function Sidebar() {
           </div>
         </nav>
       </div>
-    </div>
+    // </div>
   )
 }

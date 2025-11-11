@@ -779,7 +779,7 @@ export default function PagesAnalytics() {
                         ) : ( 
                             <div className="container-fluid">
                                 <div className="row">
-                                    <div className="col-12 od-xl-1">
+                                    <div className="col-12 od-xl-1 mobile-px-0">
                                         <div className="row">
                                             {Array.isArray(connectedAccountInfo) &&
                                                 connectedAccountInfo.some(account =>
@@ -788,7 +788,7 @@ export default function PagesAnalytics() {
                                                     Array.isArray(account.socialPage) &&
                                                     account.socialPage.some(page => page.status === 'Connected')
                                                 ) && (
-                                                <div className="col s-xxl-3 box-col-4">
+                                                <div className="col s-xxl-3 box-col-4 col-xl-4 col-xxl-4">
                                                     <div className="card social-widget widget-hover">
                                                         <div className="card-body">
                                                             <div className="d-flex align-items-center justify-content-between">
@@ -920,7 +920,7 @@ export default function PagesAnalytics() {
                                                     Array.isArray(account.socialPage) &&
                                                     account.socialPage.some(page => page.status === 'Connected')
                                                 ) && (
-                                                <div className="col s-xxl-3 box-col-4">
+                                                <div className="col s-xxl-3 box-col-4 col-xl-4 col-xxl-4">
                                                     <div className="card social-widget widget-hover">
                                                         <div className="card-body">
                                                             <div className="d-flex align-items-center justify-content-between">
@@ -1028,7 +1028,7 @@ export default function PagesAnalytics() {
                                                     Array.isArray(account.socialPage) &&
                                                     account.socialPage.some(page => page.status === 'Connected')
                                                 ) && (
-                                                <div className="col s-xxl-3 box-col-4">
+                                                <div className="col s-xxl-3 box-col-4 col-xl-4 col-xxl-4">
                                                     <div className="card social-widget widget-hover">
                                                         <div className="card-body">
                                                             <div className="d-flex align-items-center justify-content-between">
@@ -1163,7 +1163,7 @@ export default function PagesAnalytics() {
                                 </div>
 
                                 <div className="row">
-                                    <div className="col-xxl-6 col-xl-6 col-md-6 ord-md-i box-col-4">
+                                    <div className="col-xxl-6 col-xl-6 col-md-6 ord-md-i box-col-4 mobile-px-0">
                                         <div className="card visits-wrapper">
                                             <div className="card-header card-no-border">
                                                 <div className="header-top">
@@ -1182,7 +1182,7 @@ export default function PagesAnalytics() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="col-xxl-6 col-xl-6 col-md-6 ord-md-i box-col-4">
+                                    <div className="col-xxl-6 col-xl-6 col-md-6 ord-md-i box-col-4 mobile-px-0">
                                         <div className="card visits-wrapper">
                                             <div className="card-header card-no-border">
                                                 <div className="header-top">
@@ -1202,7 +1202,7 @@ export default function PagesAnalytics() {
                                         </div>
                                     </div>
 
-                                    <div className="col-xxl-6 col-xl-6 col-md-6 ord-md-i box-col-4">
+                                    <div className="col-xxl-6 col-xl-6 col-md-6 ord-md-i box-col-4 mobile-px-0">
                                         <div className="card visits-wrapper">
                                             <div className="card-header card-no-border">
                                                 <div className="header-top">
@@ -1224,7 +1224,7 @@ export default function PagesAnalytics() {
                                 </div>
 
                                 <div className="row">
-                                    <div className="col-xxl-12 col-xl-12 od-xl-12 box-col-12">
+                                    <div className="col-xxl-12 col-xl-12 od-xl-12 box-col-12 mobile-px-0">
                                         <div className="card heading-space">
                                             <div className="card-header card-no-border">
                                                 <div className="header-top" style={{marginLeft:'0px'}}>
@@ -1461,7 +1461,7 @@ export default function PagesAnalytics() {
                                 </div>
 
                                 <div className="row">
-                                    <div className="col-md-12 od-xl-7">
+                                    <div className="col-md-12 od-xl-7 mobile-px-0">
                                         <div className="card sales-report">
                                         <div className="card-header card-no-border">
                                                 <div className="header-top">

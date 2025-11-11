@@ -5,7 +5,7 @@ import {
 } from 'date-fns';
 
 export const getCustomStaticRanges = (today = new Date()) => {
-  const endDate = subDays(today, 1);
+  const endDate = subDays(today, 0);
 
   return [
     {

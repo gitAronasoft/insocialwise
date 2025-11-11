@@ -47,6 +47,9 @@ const activityCreate = require("./utils/activityCreate");
 const Activity = require("./models/mysql/Activity");
 const mime = require("mime-types");
 const { platform } = require("os");
+const colors = require('colors');
+const KnowledgeBase = require("./models/mysql/KnowledgeBase");
+const KnowledgebaseMeta = require("./models/mysql/KnowledgebaseMeta");
 
 PostComments.belongsTo(UserPost, {
   foreignKey: 'post_id',
@@ -2075,49 +2078,108 @@ async function updateFacebookPost(postId, message, accessToken) {
         return { success: false, error: err.message };
     }
 }
+// async function updateLinkedInPost(postId, message, accessToken) {
+//     try {
+//         if (!postId || !message || !accessToken) {
+//             throw new Error("postId, message, and accessToken are required.");
+//         }
+//         const encodedPostId = encodeURIComponent(postId);
+//         // Build the PATCH body for updating commentary
+//         const patchBody = JSON.stringify({
+//                 "patch": {
+//                     "$set": {
+//                         "commentary":  message,
+//                         "contentCallToActionLabel": "LEARN_MORE"
+//                     }
+//                 }
+//             });
+//         console.log(`Updating LinkedIn post at: https://api.linkedin.com/rest/posts/${encodedPostId}`);
+//         console.log("Payload:", patchBody);
+//         // Send PATCH request
+//         const res = await fetch(`https://api.linkedin.com/rest/posts/${encodedPostId}`, {
+//             method: "POST",
+//             headers: {
+//                 "Authorization": `Bearer ${accessToken}`,
+//                 "Content-Type": "application/json",
+//                 "X-Restli-Protocol-Version": "2.0.0",
+//                 'X-RestLi-Method': 'PARTIAL_UPDATE',
+//                 "LinkedIn-Version": "202504",
+//             },
+//             body: patchBody
+//         });
+//         const responseText = await res.text();
+//         let data;
+//         try {
+//             data = JSON.parse(responseText);
+//         } catch {
+//             data = responseText;
+//         }
+//         if (res.ok) {
+//             console.log("Post updated successfully:", data);
+//             return { success: true, data: data };
+//         } else {
+//             console.error("LinkedIn API Error:", res.status, data);
+//             return { success: false, error: data };
+//         }
+//     } catch (err) {
+//         console.error("LinkedIn Post Update Failed:", err.message);
+//         return { success: false, error: err.message };
+//     }
+// }
 async function updateLinkedInPost(postId, message, accessToken) {
     try {
         if (!postId || !message || !accessToken) {
             throw new Error("postId, message, and accessToken are required.");
         }
+        
+        // Ensure the post ID is URL-encoded
         const encodedPostId = encodeURIComponent(postId);
+        
         // Build the PATCH body for updating commentary
         const patchBody = JSON.stringify({
-                "patch": {
-                    "$set": {
-                        "commentary":  message,
-                        // "contentCallToActionLabel": "LEARN_MORE"
-                    }
+            "patch": {
+                "$set": {
+                    // 'commentary' is the correct field for updating the text content
+                    "commentary": message 
                 }
-            });
-        console.log(`Updating LinkedIn post at: https://api.linkedin.com/rest/posts/${encodedPostId}`);
-        console.log("Payload:", patchBody);
-        // Send PATCH request
+            }
+        });
+        
+        console.log(`Attempting robust POST/PARTIAL_UPDATE on LinkedIn post: https://api.linkedin.com/rest/posts/${encodedPostId}`);
+        
         const res = await fetch(`https://api.linkedin.com/rest/posts/${encodedPostId}`, {
-            method: "POST",
+            // FIX 1: Use POST method, which is required when using X-RestLi-Method
+            method: "POST", 
             headers: {
                 "Authorization": `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
-                "X-Restli-Protocol-Version": "2.0.0",
-                'X-RestLi-Method': 'PARTIAL_UPDATE',
-                "LinkedIn-Version": "202504",
+                // FIX 2: Re-introduce X-RestLi-Method to signal a partial update
+                'X-RestLi-Method': 'PARTIAL_UPDATE', 
+                // FIX 3: Re-introduce the X-Restli-Protocol-Version header (often required with PARTIAL_UPDATE)
+                "X-Restli-Protocol-Version": "2.0.0", 
+                "LinkedIn-Version": "202504", 
             },
             body: patchBody
         });
+        
+        // A successful POST/PARTIAL_UPDATE often returns 204 No Content.
+        if (res.status === 204 || res.ok) {
+            console.log("LinkedIn Post updated successfully.");
+            return { success: true, data: {} }; 
+        }
+
         const responseText = await res.text();
-        let data;
+        let data = {};
+        
         try {
-            data = JSON.parse(responseText);
+            data = responseText ? JSON.parse(responseText) : {};
         } catch {
             data = responseText;
         }
-        if (res.ok) {
-            console.log("Post updated successfully:", data);
-            return { success: true, data: data };
-        } else {
-            console.error("LinkedIn API Error:", res.status, data);
-            return { success: false, error: data };
-        }
+        
+        console.error("LinkedIn API Error:", res.status, data);
+        return { success: false, error: data };
+        
     } catch (err) {
         console.error("LinkedIn Post Update Failed:", err.message);
         return { success: false, error: err.message };
@@ -2404,18 +2466,6 @@ const removeFilesFromDisk = (files) => {
         if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
     });
 };
-// Helper to save new files
-const processUploadedFiles = (uploadedFiles, existingCount) => {
-    return uploadedFiles.map((f, index) => {
-        const isVideo = f.mimetype.startsWith("video/");
-        const servedPath = `/uploads/posts/${isVideo ? "videos" : "images"}/${f.filename}`;
-        return {
-            order: existingCount + index,
-            type: isVideo ? "video" : "image",
-            path: servedPath
-        };
-    });
-};
 
 app.post(`/${prefix}/delete-post`, async (req, resp) => {
     const token = req.token;
@@ -2545,10 +2595,16 @@ app.post(`/${prefix}/posts`, async (req, resp) => {
 
 //Function to determine the correct date for sorting
 const getSortDate = (post) => {
+    const todayStr = new Date().toISOString().split('T')[0];
     switch (post.status?.toString()) {
         case '0':
             return post.updatedAt;
         case '1':
+            const createdAtDate = new Date(post.createdAt);
+            const createdStr = createdAtDate.toISOString().split('T')[0].replace(/\//g, '-');
+            if (post.week_date === createdStr && post.week_date === todayStr.replace(/\//g, '-')) {
+                return post.createdAt;
+            }
             return post.week_date;
         case '2':
             const t = Number(post.schedule_time);
@@ -2959,8 +3015,13 @@ app.post(`/${prefix}/user-disconnect`, async (req, resp) => {
                         social_userid: req.body.discount_account
                     }
                 });
+
+                // Update each page to 'notConnected'
+                const disconnectedPageIds = [];
+
                 for (const page of getUserPageData) {
                     await page.update({ status: "notConnected" });
+                    disconnectedPageIds.push(page.pageId); // Collect disconnected page IDs
                 }
                 const userData = await User.findOne({ where: { uuid: loggedUser_uuid } });
                 const { otp, otpGeneratedAt, password, ...userDatanew } = userData.dataValues;
@@ -2996,7 +3057,13 @@ app.post(`/${prefix}/user-disconnect`, async (req, resp) => {
                     const activity_subType = "account";
                     const action = "disconnect";
                     const post_form_id = social_page_data.page_platform;
-                    const reference_pageID = { activity_type_id: {}, activity_subType_id: {}, title:getUserData.name };
+                    const reference_pageID = { 
+                        activity_type_id: {}, 
+                        activity_subType_id: {
+                            pages: disconnectedPageIds, // 👈 Add disconnected page IDs here
+                        }, 
+                        title:getUserData.name 
+                    };
                     const source_type = '';
                     const nextAPI_call_dateTime = '';
                     await activityCreate(user_uuid,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
@@ -3742,6 +3809,7 @@ app.post(`/${prefix}/auth/linkedin`, async (req, res) => {
 });
 app.post(`/${prefix}/auth/linkedin/profile`, async (req, res) => {
     const encToken = decryptToken( req.body.token.token, req.body.token.iv );
+    // console.log("MyToken:", encToken);
     const data = req.body;
     const token = req.token;
     if (!token) {
@@ -3754,6 +3822,7 @@ app.post(`/${prefix}/auth/linkedin/profile`, async (req, res) => {
                 return res.status(401).json({ message: "Token not valid." });
             } else {
                 try {
+                    // console.log("started with profile fetch link.".green);
                     const profileRes = await axios.get(
                         'https://api.linkedin.com/v2/userinfo', {
                         headers: {
@@ -4083,6 +4152,7 @@ app.post(`/${prefix}/linkedin/save-pages`, async (req, res) => {
         return res.status(401).json({ message: "LinkedIn Token not found." });
     }
 });
+
 app.post(`/${prefix}/linkedin/fetch-page-analytics`, async (req, res) => {
     const linkedinToken = req.body.token;
     const token = req.token;
@@ -4105,35 +4175,90 @@ app.post(`/${prefix}/linkedin/fetch-page-analytics`, async (req, res) => {
             const encToken = decryptToken(linkedinToken.token, linkedinToken.iv);
             const organizationPageIds = req.body.pagesData || [];
 
+            const loggedUser_uuid = authData.userData.uuid;
+            const socailUserData = await SocialUser.findOne({ 
+                where: { user_token: encToken } 
+            });            
+
+            const todayDate = new Date().toISOString().slice(0, 10);
+            const activityRecord = await Activity.findAll({
+                where: {
+                    user_uuid: loggedUser_uuid,
+                    account_social_userid: socailUserData.social_id,
+                    activity_type: "social",
+                    activity_subType: "account",
+                    action: "disconnect",            
+                },
+                order: [['id', 'DESC']], // get the latest one
+                raw: true,
+            });
+
+            let matchedPages = [];
+            let activityPrevDate = null;
+
+            if (activityRecord && activityRecord.length > 0) {
+                //console.log('activityRecord'.green, activityRecord);
+                const lastRow = activityRecord[0];
+                //console.log('lastRow'.red, lastRow);
+                //console.log('lastRow.activity_dateTime'.red,lastRow.activity_dateTime);
+               const activityDate = new Date(lastRow.activity_dateTime).toISOString().slice(0, 10); // 'YYYY-MM-DD' 
+                let disconnectedPages = [];
+                try {
+                    const refData = JSON.parse(lastRow.reference_pageID || "{}");
+                    disconnectedPages = refData?.activity_subType_id?.pages || [];
+                } catch (err) {
+                    console.error("Invalid JSON in reference_pageID:", err);
+                }
+                disconnectedPages = disconnectedPages.map(id => String(id));
+                //console.log('activityDate'.green, activityDate);
+                // ✅ One day back from activityDate
+                const activityPrevDateObj = new Date(activityDate);
+                activityPrevDateObj.setDate(activityPrevDateObj.getDate() - 1);
+                activityPrevDate = activityPrevDateObj.toISOString().slice(0, 10);
+                matchedPages = organizationPageIds.filter(page => disconnectedPages.includes(String(page.id)));
+                //console.log('activityPrevDateObj'.green, activityPrevDateObj);
+            }
             const orgIds = organizationPageIds.map(page => page.id);
             if (!orgIds.length) {
                 return res.status(400).json({ message: "No LinkedIn organization IDs provided." });
             }
-
-            console.log("✅ Org IDs:", orgIds);
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const endDate = new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000);
-            const startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000);
-            const timeIntervals = `(timeRange:(start:${startDate.getTime()},end:${endDate.getTime()}),timeGranularityType:DAY)`;
-
+           
+            //console.log('activityPrevDate'.green, activityPrevDate);
+            //console.log("✅ Org IDs:", orgIds);
             const headers = {
                 'Authorization': `Bearer ${encToken}`,
                 'LinkedIn-Version': '202504',
                 'X-Restli-Protocol-Version': '2.0.0',
             };
 
+            // const today = new Date();
+            // today.setHours(0, 0, 0, 0);
+            // const endDate = new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000);
+            // const startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000);
+            // const timeIntervals = `(timeRange:(start:${startDate.getTime()},end:${endDate.getTime()}),timeGranularityType:DAY)`;
+
             const analyticsData = await Promise.all(
                 orgIds.map(async (orgId) => {
+                    const isMatched = matchedPages.some(page => String(page.id) === String(orgId));
+                    const endDate = new Date(todayDate);
+                    let startDate;
+                    // console.log("isMatched".yellow,isMatched);
+                    // console.log("matchedPages".yellow,matchedPages);
+                    if (isMatched && activityPrevDate) {
+                        const diffDays = Math.ceil((endDate - new Date(activityPrevDate)) / (1000 * 60 * 60 * 24));
+                        //console.log("Difference Date",diffDays);
+                        startDate = new Date(endDate.getTime() - diffDays * 24 * 60 * 60 * 1000);
+                    } else {
+                        startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000);
+                        console.log("else part for 90 days.");
+                    }
+                    //console.log("startDate".red ,startDate);
+                    //console.log("endDateDate".red ,endDate);                   
+                    const timeIntervals = `(timeRange:(start:${startDate.getTime()},end:${endDate.getTime()}),timeGranularityType:DAY)`;
                     const organizationURN = encodeURIComponent(`urn:li:organization:${orgId}`);
 
                     try {
-                        const [
-                            followersRes,
-                            pageViewRes,
-                            shareStatsRes
-                        ] = await Promise.all([
+                        const [ followersRes, pageViewRes, shareStatsRes ] = await Promise.all([
                             axios.get(`https://api.linkedin.com/rest/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${organizationURN}&timeIntervals=${timeIntervals}`, { headers }),
                             axios.get(`https://api.linkedin.com/rest/organizationPageStatistics?q=organization&organization=${organizationURN}&timeIntervals=${timeIntervals}`, { headers }),
                             axios.get(`https://api.linkedin.com/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${organizationURN}&timeIntervals=${timeIntervals}`, { headers }),
@@ -4141,6 +4266,8 @@ app.post(`/${prefix}/linkedin/fetch-page-analytics`, async (req, res) => {
 
                         return {
                             orgId,
+                            isReconnected: isMatched,
+                            fetchedDays: Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)),
                             followerUpdates: {
                                 data: followersRes.data?.elements || []
                             },
@@ -4170,6 +4297,7 @@ app.post(`/${prefix}/linkedin/fetch-page-analytics`, async (req, res) => {
         }
     });
 });
+
 app.post(`/${prefix}/linkedin/create_analytics`, upload, async (req, resp) => {
     try {
         const token = req.token;
@@ -4332,6 +4460,7 @@ app.post(`/${prefix}/linkedin/create_analytics`, upload, async (req, resp) => {
         });
     }
 });
+
 app.post(`/${prefix}/linkedin/save-posts`, async (req, res) => {
     const accessToken = req.body.token;
     const token = req.token;
@@ -4344,26 +4473,65 @@ app.post(`/${prefix}/linkedin/save-posts`, async (req, res) => {
                 console.error('Error verifying token:', err);
                 return res.status(401).json({ message: "Token not valid." });
             } else {
-                const encToken = decryptToken(accessToken.token,accessToken.iv);
+                const encToken = decryptToken(accessToken.token,accessToken.iv);              
+
                 try {
                     // const organizationPageId = req.body.pageId;
                     const organizationPageIds = req.body.pagesData;
+                    const user_uuid = authData.userData;
+                    
+                    const socailUserData = await SocialUser.findOne({ 
+                        where: { user_token: encToken } 
+                    });
+
+                    const todayDate = new Date().toISOString().slice(0, 10);
+                    const activityRecord = await Activity.findAll({
+                        where: {
+                            user_uuid: user_uuid.uuid,
+                            account_social_userid: socailUserData.social_id,
+                            activity_type: "social",
+                            activity_subType: "account",
+                            action: "disconnect",            
+                        },
+                        order: [['id', 'DESC']], // get the latest one
+                        raw: true,
+                    });
+
+                    let matchedPages = [];
+                    let activityPrevDate = null;
+
+                    if(activityRecord && activityRecord.length > 0) {
+                        const lastRow = activityRecord[0];
+                        const activityDate = new Date(lastRow.activity_dateTime).toISOString().slice(0, 10); // 'YYYY-MM-DD'
+                        let disconnectedPages = [];
+                        try {
+                            const refData = JSON.parse(lastRow.reference_pageID || "{}");
+                            disconnectedPages = refData?.activity_subType_id?.pages || [];
+                        } catch (err) {
+                            console.error("Invalid JSON in reference_pageID:", err);
+                        }
+                        disconnectedPages = disconnectedPages.map(id => String(id));
+                        // ✅ One day back from activityDate
+                        const activityPrevDateObj = new Date(activityDate);
+                        activityPrevDateObj.setDate(activityPrevDateObj.getDate() - 1);
+                        activityPrevDate = activityPrevDateObj.toISOString().slice(0, 10);
+                        matchedPages = organizationPageIds.filter(page => disconnectedPages.includes(String(page.id)));
+                    }
+
                     let orgIds = [];
                     for(pageIds of organizationPageIds){
                         orgIds.push(pageIds.id);
                     }
+
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
-
                     const endDate = new Date(today); // today as end
                     const startDate = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
                     // const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-
                     const startEpoch = startDate.getTime();
                     const endEpoch = endDate.getTime();
-                    // const weekStartEpoch = weekStart.getTime();
-
-                    const timeIntervals = `(timeRange:(start:${startEpoch},end:${endEpoch}),timeGranularityType:DAY)`;
+                    // // const weekStartEpoch = weekStart.getTime();
+                    // const timeIntervals = `(timeRange:(start:${startEpoch},end:${endEpoch}),timeGranularityType:DAY)`;
 
                     const headers = {
                         Authorization: `Bearer ${encToken}`,
@@ -4375,10 +4543,25 @@ app.post(`/${prefix}/linkedin/save-posts`, async (req, res) => {
 
                     const organizationDetails = await Promise.all(
                         orgIds.map(async (orgId) => {
+                            const isMatched = matchedPages.some(page => String(page.id) === String(orgId));
+                            const endDates = new Date(todayDate);
+                            let startDates;
+
+                            if (isMatched && activityPrevDate) {
+                                const diffDays = Math.ceil((endDates - new Date(activityPrevDate)) / (1000 * 60 * 60 * 24));
+                                //console.log("Difference Date",diffDays);
+                                startDates = new Date(endDates.getTime() - diffDays * 24 * 60 * 60 * 1000);
+                            } else {
+                                startDates = new Date(endDates.getTime() - 90 * 24 * 60 * 60 * 1000);
+                                console.log("else part for 90 days.");
+                            }
+                            
+                            const timeIntervals = `(timeRange:(start:${startDates.getTime()},end:${endDates.getTime()}),timeGranularityType:DAY)`;
 
                             const SocialPage = await SocialUserPage.findOne({
                                 attributes: ['social_userid'],
                                 where: {
+                                    user_uuid: user_uuid.uuid,
                                     pageId: orgId,
                                 },
                                 raw: true,
@@ -4392,17 +4575,12 @@ app.post(`/${prefix}/linkedin/save-posts`, async (req, res) => {
 
                             for (const post of shares) {
                                 if (!post?.id) continue;
-
                                 const createdEpoch = post?.created?.time || null;
-
                                 if (createdEpoch >= startEpoch && createdEpoch <= endEpoch) {
-
                                     const postUrn = post.id;
                                     const type = postUrn.includes("ugcPost:") ? "ugcPosts" : "shares";
                                     const encodedUrn = encodeURIComponent(postUrn);
-
                                     const statsUrl = `https://api.linkedin.com/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=urn%3Ali%3Aorganization%3A${orgId}&${type}=List(${encodedUrn})&timeIntervals=${timeIntervals}`;
-
                                     try {
                                         const statsRes = await axios.get(statsUrl, { headers });
                                         const statsElement = statsRes.data.elements || [];
@@ -4424,7 +4602,7 @@ app.post(`/${prefix}/linkedin/save-posts`, async (req, res) => {
                                         // console.log("post content: ",postContent);
 
                                         const record = {
-                                            user_uuid: authData.userData.uuid,
+                                            user_uuid: user_uuid.uuid,
                                             social_user_id: SocialPage.social_userid,
                                             page_id: orgId,
                                             content: postContent || '',
@@ -4494,6 +4672,7 @@ app.post(`/${prefix}/linkedin/save-posts`, async (req, res) => {
         return res.status(401).json({ message: "LinkedIn Token not found." });
     }
 });
+
 app.post(`/${prefix}/linkedin/save-posts-comments`, async (req, res) => {
     const accessToken = req.body.token;
     const token = req.token;
@@ -4565,7 +4744,7 @@ app.post(`/${prefix}/linkedin/save-posts-comments`, async (req, res) => {
             }
             // Process each organization in sequence to avoid rate-limit issues
             for (const orgId of orgIds) {
-                const findPageInfo = await SocialUserPage.findOne({ where: { pageId: orgId } });
+                const findPageInfo = await SocialUserPage.findOne({ where: { user_uuid: userData.uuid, pageId: orgId } });
                 if (!findPageInfo) {
                     console.warn(`No page info found for orgId: ${orgId}`);
                     continue;
@@ -4589,12 +4768,24 @@ app.post(`/${prefix}/linkedin/save-posts-comments`, async (req, res) => {
                 // Save or update comments
                 for (const comment of postCommentData) {
                     await PostComments.findOrCreate({
-                        where: { comment_id: comment.comment_id },
+                        where: { user_uuid: userData.uuid, comment_id: comment.comment_id },
                         defaults: comment,
                     });
                 }
-                console.log(`:white_check_mark: Comments synced for LinkedIn page: ${orgId}`);
+                //console.log(`:white_check_mark: Comments synced for LinkedIn page: ${orgId}`);
             }
+
+            // N8N Bulk Comments Sentiment update function
+                try {
+                    const response = await axios.post(`${process.env.N8N_BULK_COMMENT_WEBHOOK_URL}`, {
+                        user_id: userData.uuid
+                    });
+                    //console.log("N8N bulk comment sentiment updated response: ",response.data);
+                } catch(err){
+                    console.error('LinkedIn bulk comment sentiment update error:', err.response?.data || err.message);
+                }
+            // N8N function ends here
+
             return res.status(200).json({
                 message: "LinkedIn comments fetched and saved successfully.",
                 status: "success"
@@ -5093,7 +5284,7 @@ app.post(`/${prefix}/linkedin/fetch-comments`, async (req, res) => {
             const latestComments = await PostComments.findAll({
                 where: {
                     post_id: {
-                            [Op.in]: platformPostIds, // ✅ match multiple IDs
+                            [Op.in]: platformPostIds, // :white_check_mark: match multiple IDs
                         },
                 },
                 include: [
@@ -5182,6 +5373,28 @@ app.post(`/${prefix}/linkedin/create-comment`, async (req, res) => {
                         },
                     ]
                 });
+                const userPost = await UserPost.findOne({
+                    where: {
+                        platform_post_id: post_id
+                    }
+                });
+                await userPost.increment('comments', { by: 1 });
+                const user_UUID = userData.uuid;
+                const account_social_userid = socialPageData.social_userid;
+                const account_platform = 'facebook';
+                const activity_type = "comment";
+                const activity_subType = "posts";
+                const action = "create";
+                const post_form_id = '';
+                const reference_pageID = {
+                    activity_type_id: commentData.id,
+                    activity_subType_id: post_id,
+                };
+                const source_type = '';
+                const now = new Date();
+                const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                const nextAPI_call_dateTime = next24FromNow;
+                await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
                 // console.log("CommentData: ",commentDataFetch);
                 return res.status(200).json({ message: "Comment posted successfully.", reply:commentDataFetch });
             } catch (error) {
@@ -5267,8 +5480,13 @@ app.post(`/${prefix}/linkedin/comment-reply`, async (req, res) => {
                         },
                     ]
                 });
-
-                const user_uuid = userData.uuid; 
+                const userPost = await UserPost.findOne({
+                    where: {
+                        platform_post_id: commentData.post_id
+                    }
+                });
+                await userPost.increment('comments', { by: 1 });
+                const user_uuid = userData.uuid;
                 const account_social_userid = socialPageData.social_userid;
                 const account_platform = socialPageData.page_platform;
                 const activity_type = "comments";
@@ -5279,7 +5497,6 @@ app.post(`/${prefix}/linkedin/comment-reply`, async (req, res) => {
                 const source_type = '';
                 const nextAPI_call_dateTime = '';
                 await activityCreate(user_uuid,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
-
                 return res.status(200).json({ message: "Comment replied successfully.", reply:replyDataFetch });
             } catch (error) {
                 console.error('LinkedIn comment posting Error:', error.response?.data || error.message);
@@ -5298,6 +5515,7 @@ app.post(`/${prefix}/linkedin/comment-update`, async (req, res) => {
             console.error("Error verifying token:", err);
             return res.status(401).json({ message: "Token not valid." });
         }
+        const { userData } = authData;
         const commentID = req.body.commentId;
         const updatedComment = req.body.message?.trim();
         if (!updatedComment) {
@@ -5354,6 +5572,22 @@ app.post(`/${prefix}/linkedin/comment-update`, async (req, res) => {
                     },
                 ],
             });
+            const user_UUID = userData.uuid;
+            const account_social_userid = commentRecord.social_userid;
+            const account_platform = commentRecord.platform;
+            const activity_type = "comment";
+            const activity_subType = "posts";
+            const action = "update";
+            const post_form_id = '';
+            const reference_pageID = {
+                activity_type_id: commentRecord.comment_id,
+                activity_subType_id: commentRecord.post_id,
+            };
+            const source_type = '';
+            const now = new Date();
+            const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            const nextAPI_call_dateTime = next24FromNow;
+            await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
             return res.status(200).json({
                 message: "Comment updated successfully.",
                 comment: updatedCommentData,
@@ -5375,6 +5609,7 @@ app.delete(`/${prefix}/linkedin/comment-delete`, async (req, res) => {
             return res.status(401).json({ message: "Token not valid." });
         }
         const commentID = req.body.commentId;
+        const { userData } = authData;
         if (!commentID) {
             return res.status(400).json({ message: "Comment ID is required." });
         }
@@ -5419,9 +5654,37 @@ app.delete(`/${prefix}/linkedin/comment-delete`, async (req, res) => {
                 .map(item => item.id);
             // Always delete the main comment
             const idsToDelete = [commentID, ...relatedReplyIdsToDelete];
+            const totalDeletedCount = idsToDelete.length;
             await PostComments.destroy({
                 where: { id: idsToDelete },
             });
+            const userPost = await UserPost.findOne({
+                where: {
+                    platform_post_id: post_id
+                }
+            });
+            if (!userPost) {
+                return res.status(404).json({ message: "Post not found." });
+            }
+            if (userPost.comments > 0) {
+                await userPost.decrement('comments', { by: totalDeletedCount });
+            }
+            const user_UUID = userData.uuid;
+            const account_social_userid = userPost.social_user_id;
+            const account_platform = userPost.post_platform;
+            const activity_type = "comment";
+            const activity_subType = "posts";
+            const action = "delete";
+            const post_form_id = '';
+            const reference_pageID = {
+                activity_type_id: '',
+                activity_subType_id: post_id,
+            };
+            const source_type = '';
+            const now = new Date();
+            const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            const nextAPI_call_dateTime = next24FromNow;
+            await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
             return res.status(200).json({
                 message: "Comment and its related replies (if any) deleted successfully.",
                 deletedIds: idsToDelete,
@@ -5613,8 +5876,19 @@ async function publishToFacebook(platform, content, mediaFiles) {
                 pageId,
                 pageName,
                 platform_post_id: postRes.data.id,
+                // media: mediaFiles.length
+                //     ? JSON.stringify(mediaFiles.map(f => ({ type: f.type, path: f.filename, originalname: f.originalname })))
+                //     : null,
                 media: mediaFiles.length
-                    ? JSON.stringify(mediaFiles.map(f => ({ type: f.type, path: f.filename, originalname: f.originalname })))
+                    ? JSON.stringify(mediaFiles.map((f, idx) => {
+                        const isVideo = f.type === 'video';
+                        return {
+                            order: idx,
+                            type: f.type,
+                            path: `/uploads/posts/${isVideo ? "videos" : "images"}/${f.filename}`, 
+                            originalname: f.originalname || null,
+                        };
+                    }))
                     : null,
                 content,
                 social_userid: pageSocialUser,
@@ -5777,8 +6051,13 @@ async function publishToLinkedIn(platform, content, mediaFiles) {
         pageName,
         platform_post_id: postRes.data.id,
         media: assetUrns.length > 0 ? JSON.stringify(
-                    assetUrns.map((a) => ({ assetUrn: a.urn, type: a.file.type, path: a.file.filename }))
-                ) : null,
+                assetUrns.map((a, idx) => ({ 
+                    order: idx, 
+                    type: a.file.type, 
+                    path: `/uploads/posts/${a.file.type === "video" ? "videos" : "images"}/${a.file.filename}`,
+                    platformId: a.urn
+                }))
+            ) : null,
         content,
         social_userid: pageSocialUser
     };
@@ -5906,32 +6185,29 @@ app.post(`/${prefix}/getPlatformPostComments`, async (req, res) => {
             return res.status(401).json({ message: "Token not valid." });
         }
         try {
-            const findPagenfo = await SocialUserPage.findOne({
-                where: {
-                    pageId: req.body.pageInfoID,
-                    status: "Connected"
-                },
-                raw: true,
-            });
-            if (!findPagenfo) {
-                return res.status(404).json({ message: "Page info not found." });
-            }
-            
+            const { getDataFormDate, getDataToDate, pageInfoID, platform } = req.body;
             const allcomments = await PostComments.findAll({
                 where: {
                     user_uuid: authData.userData.uuid,
-                    platform_page_Id: findPagenfo.pageId
-                },                
+                    platform_page_Id: pageInfoID,
+                    platform:platform,
+                    [Op.and]: [
+                        where(fn('DATE', col('PostComments.comment_created_time')), {
+                            [Op.between]: [getDataFormDate, getDataToDate],
+                        }),
+                    ],
+                },
                 include: [
                     {
-                    model: UserPost,
+                        model: UserPost,
                         attributes: ['post_media', 'content', 'likes', 'week_date'],
                     },
                 ],
-                order: [['comment_created_time', 'DESC']],
+                order: [['comment_created_time', 'DESC']],                
+                group: ['PostComments.comment_id'],
                 limit: 50,
             });
-
+            //console.log('allcomments'.red, allcomments);
             return res.json({
                 success: true,
                 message: "Comments fetched successfully.",
@@ -5991,6 +6267,12 @@ app.post(`/${prefix}/create-comment`, async (req, res) => {
                     comment_type: 'top_level',
                     reaction_like: 0
                 });
+                const userPost = await UserPost.findOne({
+                    where: {
+                        platform_post_id: post_id
+                    }
+                });
+                await userPost.increment('comments', { by: 1 });
                 const commentDataFetch = await PostComments.findOne({
                     where: { id: createComment.id },
                     include: [
@@ -6003,6 +6285,22 @@ app.post(`/${prefix}/create-comment`, async (req, res) => {
                     originSocketId: req.headers['x-socket-id'] || null,
                     data: commentDataFetch         // plain JSON with UserPost relation included
                 });
+                const user_UUID = userData.uuid;
+                const account_social_userid = socialPageData.social_userid;
+                const account_platform = 'facebook';
+                const activity_type = "comment";
+                const activity_subType = "posts";
+                const action = "create";
+                const post_form_id = '';
+                const reference_pageID = {
+                    activity_type_id: commentData.id,
+                    activity_subType_id: post_id,
+                };
+                const source_type = '';
+                const now = new Date();
+                const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                const nextAPI_call_dateTime = next24FromNow;
+                await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
                 return res.status(200).json({ message: "Comment posted successfully.", reply:commentDataFetch });
             } catch (error) {
                 console.error('Facebook comment posting Error:', error.response?.data || error.message);
@@ -6061,6 +6359,12 @@ app.post(`/${prefix}/comment-reply`, async (req, res) => {
                     reaction_like: 0,
                     comment_created_time: formattedDate
                 });
+                const userPost = await UserPost.findOne({
+                    where: {
+                        platform_post_id: commentData.post_id
+                    }
+                });
+                await userPost.increment('comments', { by: 1 });
                 const replyDataFetch = await PostComments.findOne({
                     where: { id: createReply.id },
                     include: [
@@ -6069,8 +6373,7 @@ app.post(`/${prefix}/comment-reply`, async (req, res) => {
                         },
                     ]
                 });
-
-                const user_uuid = userData.uuid; 
+                const user_uuid = userData.uuid;
                 const account_social_userid = socialPageData.social_userid;
                 const account_platform = socialPageData.page_platform;
                 const activity_type = "comments";
@@ -6081,7 +6384,6 @@ app.post(`/${prefix}/comment-reply`, async (req, res) => {
                 const source_type = '';
                 const nextAPI_call_dateTime = '';
                 await activityCreate(user_uuid,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
-
                 io.to(`post:${commentData.post_id}`).emit('comment:new', {
                     originSocketId: req.headers['x-socket-id'] || null,
                     data: replyDataFetch         // plain JSON with UserPost relation included
@@ -6104,6 +6406,7 @@ app.post(`/${prefix}/comment-update`, async (req, res) => {
             console.error("Error verifying token:", err);
             return res.status(401).json({ message: "Token not valid." });
         }
+        const { userData } = authData;
         const commentID = req.body.commentId;
         const updatedComment = req.body.message?.trim();
         if (!updatedComment) {
@@ -6137,7 +6440,6 @@ app.post(`/${prefix}/comment-update`, async (req, res) => {
                 }),
             });
             // console.log("update response",response);
-
             // Update local DB
             await PostComments.update(
                 { comment: updatedComment },
@@ -6152,6 +6454,22 @@ app.post(`/${prefix}/comment-update`, async (req, res) => {
                     },
                 ],
             });
+            const user_UUID = userData.uuid;
+            const account_social_userid = commentRecord.social_userid;
+            const account_platform = commentRecord.platform;
+            const activity_type = "comment";
+            const activity_subType = "posts";
+            const action = "update";
+            const post_form_id = '';
+            const reference_pageID = {
+                activity_type_id: commentRecord.comment_id,
+                activity_subType_id: commentRecord.post_id,
+            };
+            const source_type = '';
+            const now = new Date();
+            const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            const nextAPI_call_dateTime = next24FromNow;
+            await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
             io.to(`post:${post_id}`).emit('comment:updated', {
                 originSocketId: req.headers['x-socket-id'] || null,
                 data: updatedCommentData          // plain JSON with UserPost relation included
@@ -6176,6 +6494,7 @@ app.post(`/${prefix}/comment-delete`, async (req, res) => {
             console.error("Error verifying token:", err);
             return res.status(401).json({ message: "Token not valid." });
         }
+        const { userData } = authData;
         const commentID = req.body.commentId;
         if (!commentID) {
             return res.status(400).json({ message: "Comment ID is required." });
@@ -6195,7 +6514,6 @@ app.post(`/${prefix}/comment-delete`, async (req, res) => {
                 return res.status(403).json({ message: "Page access token not found." });
             }
             const accessToken = socialPageData.token;
-            
             // Facebook API: Delete comment
             const response = await fetch(
                 `https://graph.facebook.com/v22.0/${facebookCommentId}?access_token=${accessToken}`,
@@ -6216,6 +6534,7 @@ app.post(`/${prefix}/comment-delete`, async (req, res) => {
                 .map(item => item.id);
             // Always delete the main comment
             const idsToDelete = [commentID, ...relatedReplyIdsToDelete];
+            const totalDeletedCount = idsToDelete.length;
             await PostComments.destroy({
                 where: { id: idsToDelete },
             });
@@ -6223,6 +6542,33 @@ app.post(`/${prefix}/comment-delete`, async (req, res) => {
                 originSocketId: req.headers['x-socket-id'] || null,
                 data: idsToDelete          // plain JSON with UserPost relation included
             });
+            const userPost = await UserPost.findOne({
+                where: {
+                    platform_post_id: post_id
+                }
+            });
+            if(!userPost) {
+                return res.status(404).json({ message: "Post not found." });
+            }
+            if (userPost.comments > 0) {
+                await userPost.decrement('comments', { by: totalDeletedCount });
+            }
+            const user_UUID = userData.uuid;
+            const account_social_userid = userPost.social_user_id;
+            const account_platform = userPost.post_platform;
+            const activity_type = "comment";
+            const activity_subType = "posts";
+            const action = "delete";
+            const post_form_id = '';
+            const reference_pageID = {
+                activity_type_id: '',
+                activity_subType_id: post_id,
+            };
+            const source_type = '';
+            const now = new Date();
+            const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            const nextAPI_call_dateTime = next24FromNow;
+            await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
             return res.status(200).json({
                 message: "Comment and its related replies (if any) deleted successfully.",
                 deletedIds: idsToDelete,
@@ -6233,6 +6579,172 @@ app.post(`/${prefix}/comment-delete`, async (req, res) => {
         }
     });
 });
+
+// Start Delete selected comments
+app.post(`/${prefix}/delete-selected-comments`, async (req, res) => {
+    const token = req.token;
+    if (!token) {
+        return res.status(401).json({ message: "No token provided." });
+    }
+    jwt.verify(token, secretKey, async (err, authData) => {
+        if (err) {
+            console.error("Error verifying token:", err);
+            return res.status(401).json({ message: "Token not valid." });
+        }
+        const { userData } = authData;
+        const commentIDs = req.body.deleteComments; // e.g. [1193, 1194, 1195]
+        const commentPlatform = req.body.commentPlatform;
+        const selectPageID = req.body.selectPageID;
+        if(!Array.isArray(commentIDs) || commentIDs.length === 0) {
+            return res.status(400).json({ message: "Comment IDs are required." });
+        }
+        if (!selectPageID) {
+            return res.status(400).json({ message: "Invalid request." });
+        }
+        const socialPageData = await SocialUserPage.findOne({
+            attributes: ['token'],
+            where: { pageId: req.body.selectPageID },
+            raw: true,
+        });
+        if (!socialPageData || !socialPageData.token) {
+            return res.status(403).json({ message: "Page access token not found." });
+        }
+        const accessToken = socialPageData.token;
+        const deletedIds = [];
+        if (commentPlatform === 'facebook') {
+            // Loop and delete comments one by one
+            const results = [];
+            for (const facebookCommentId of commentIDs) {
+                const commentDetails = await PostComments.findOne({
+                    where: { id: facebookCommentId },
+                });
+                if (!commentDetails) continue;
+                try {
+                    const response = await fetch(
+                        `https://graph.facebook.com/v22.0/${commentDetails.comment_id}?access_token=${accessToken}`,
+                        {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                        }
+                    );
+                    const result = await response.json();
+                    if (response.ok) {
+                        // DB Clean-up Logic
+                        const deletedCount = await PostComments.destroy({
+                            where: {
+                                [Op.or]: [
+                                    { comment_id: commentDetails.comment_id },
+                                    { parent_comment_id: commentDetails.comment_id },
+                                ],
+                            },
+                        });
+                        const userPost = await UserPost.findOne({
+                            where: {
+                                platform_post_id: commentDetails.post_id
+                            }
+                        });
+                        if(!userPost) {
+                            //return res.status(404).json({ message: "Post not found." });
+                        }
+                        if (userPost.comments > 0) {
+                            await userPost.decrement('comments', { by: deletedCount });
+                        }
+                        const user_UUID = userData.uuid;
+                        const account_social_userid = userPost.social_user_id;
+                        const account_platform = 'facebook';
+                        const activity_type = "comment";
+                        const activity_subType = "posts";
+                        const action = "delete";
+                        const post_form_id = '';
+                        const reference_pageID = {
+                            activity_type_id: '',
+                            activity_subType_id: commentDetails.post_id,
+                        };
+                        const source_type = '';
+                        const now = new Date();
+                        const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                        const nextAPI_call_dateTime = next24FromNow;
+                        await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
+                        deletedIds.push(facebookCommentId);
+                    }
+                } catch (err) {
+                    console.error(`Error deleting comment ${facebookCommentId}:`, err);
+                    results.push({
+                        deletedIds: facebookCommentId,
+                        success: false,
+                        error: err.message,
+                    });
+                }
+            }
+            return res.status(200).json({
+                message: "Comments delete operation completed.",
+                deletedIds,
+            });
+        } else if (commentPlatform === 'linkedin') {
+            const organizationURN = `urn:li:organization:${selectPageID}`;
+            for (const facebookCommentId of commentIDs) {
+                const commentDetails = await PostComments.findOne({
+                    where: { id: facebookCommentId },
+                });
+                if (!commentDetails) continue;
+                const encodedPostURN = encodeURIComponent(commentDetails.post_id);
+                const encodedOrgURN = encodeURIComponent(organizationURN);
+                const headers = {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'LinkedIn-Version': '202505',
+                    'X-Restli-Protocol-Version': '2.0.0',
+                    'Content-Type': 'application/json',
+                };
+                // LinkedIn API: Delete comment
+                await axios.delete(
+                    `https://api.linkedin.com/v2/socialActions/${encodedPostURN}/comments/${commentDetails.comment_id}?actor=${encodedOrgURN}`,
+                    { headers }
+                );
+                const deletedCount = await PostComments.destroy({
+                    where: {
+                        [Op.or]: [
+                            { comment_id: commentDetails.comment_id },
+                            { parent_comment_id: commentDetails.comment_id },
+                        ],
+                    },
+                });
+                const userPost = await UserPost.findOne({
+                    where: {
+                        platform_post_id: commentDetails.post_id
+                    }
+                });
+                if(!userPost) {
+                    return res.status(404).json({ message: "Post not found." });
+                }
+                if (userPost.comments > 0) {
+                    await userPost.decrement('comments', { by: deletedCount });
+                }
+                const user_UUID = userData.uuid;
+                const account_social_userid = userPost.social_user_id;
+                const account_platform = 'linkedin';
+                const activity_type = "comment";
+                const activity_subType = "posts";
+                const action = "delete";
+                const post_form_id = '';
+                const reference_pageID = {
+                    activity_type_id: '',
+                    activity_subType_id: commentDetails.post_id,
+                };
+                const source_type = '';
+                const now = new Date();
+                const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                const nextAPI_call_dateTime = next24FromNow;
+                await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
+                deletedIds.push(facebookCommentId);
+            }
+            return res.status(200).json({
+                message: "Comments delete operation completed.",
+                deletedIds,
+            });
+        }
+    });
+});
+// End Delete selected comments
 
 app.post(`/${prefix}/get-comments-sentiment`, async (req, res) => {
     const token = req.token;
@@ -6329,9 +6841,9 @@ app.get('/facebook/webhook', (req, res) => {
     res.sendStatus(400); // :x: Missing parameters
 });
 
-app.post('/facebook/webhook', async (req, res) => {
-    res.status(200).send('EVENT_RECEIVED');
+app.post('/facebook/webhook', async (req, res) => {    
     //console.log("webhook request count ");
+    res.status(200).send('EVENT_RECEIVED');
     try {
         const webhookResponse = req.body;
         //console.log("webhook received:",webhookResponse);
@@ -6347,7 +6859,8 @@ app.post('/facebook/webhook', async (req, res) => {
             });
 
             if (!userPost) {
-                return res.status(404).json({ message: "Post not found." });
+                console.log('Post not found.');
+                //return res.status(404).json({ message: "Post not found." });
             }
 
             await userPost.increment('likes', { by: 1 });               
@@ -6376,7 +6889,8 @@ app.post('/facebook/webhook', async (req, res) => {
             });
 
             if (!userPost) {
-                return res.status(404).json({ message: "Post not found." });
+                console.log('Post not found.');
+                //return res.status(404).json({ message: "Post not found." });
             }
 
             if (userPost.likes > 0) {
@@ -6401,14 +6915,15 @@ app.post('/facebook/webhook', async (req, res) => {
             await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
 
         } else if(changeValue && changeValue.item === 'share' && changeValue.verb==='add') {            
-            console.log("👍 New share:", changeValue);
+            //console.log("👍 New share:", changeValue);
             const userPost = await UserPost.findOne({
                 where: {
                     platform_post_id: changeValue.post_id
                 }
             });
             if (!userPost) {
-                return res.status(404).json({ message: "Post not found." });
+                console.log('Post not found.');
+                //return res.status(404).json({ message: "Post not found." });
             }
 
             await userPost.increment('shares', { by: 1 });           
@@ -6438,7 +6953,8 @@ app.post('/facebook/webhook', async (req, res) => {
                 }
             });
             if (!userPost) {
-                return res.status(404).json({ message: "Post not found." });
+                console.log('Post not found.');
+                //return res.status(404).json({ message: "Post not found." });
             }
 
             if (userPost.shares > 0) {
@@ -6464,131 +6980,316 @@ app.post('/facebook/webhook', async (req, res) => {
             
         } else if(changeValue && changeValue.item === 'comment' && changeValue.verb==='add') {
             //console.log("add comment: ",changeValue);
-            // Find user post
-            const userPost = await UserPost.findOne({
-                where: {
-                    platform_post_id: changeValue.post_id
-                }
+
+            // 1. Deduplication Check
+            const checkCommentExist = await PostComments.findOne({
+                where: { comment_id: changeValue.comment_id }
             });
-            if (!userPost) {
-                return res.status(404).json({ message: "Post not found." });
-            }
-            
-            // Prepare commentData
-            const commentData = {
-                user_uuid: userPost.user_uuid,
-                social_userid: userPost.social_user_id,
-                platform_page_Id: userPost.page_id,
-                platform: userPost.post_platform,
-                post_id: changeValue.post_id,
-                comment_id: changeValue.comment_id || null,
-                from_id: changeValue.from.id || null,
-                from_name: changeValue.from.name || null,
-                comment: changeValue.message || '',
-                parent_comment_id: changeValue?.parent_id===changeValue.post_id ? null : changeValue?.parent_id,
-                comment_type: changeValue?.parent_id===changeValue.post_id ? 'top_level' : 'reply',
-                comment_created_time: new Date(changeValue.created_time * 1000).toISOString().replace('Z', '+0000')
-            };
-            // Create comment
-            //console.log('commentData', commentData);
-            const createdComment = await PostComments.create(commentData);
-            const fullComment = await PostComments.findOne({
-                where: { id: createdComment.id },
-                include: [
-                    { model: UserPost,
-                    attributes: ['post_media', 'content', 'likes', 'comments', 'shares', 'engagements', 'impressions', 'unique_impressions', 'week_date']
-                    },
-                ]
-            }); 
-
-            await userPost.increment('comments', { by: 1 });            
-
-            const user_UUID = userPost.user_uuid;
-            const account_social_userid = userPost.social_user_id;
-            const account_platform = userPost.post_platform;
-            const activity_type = "comment";
-            const activity_subType = "posts";
-            const action = "create";
-            const post_form_id = '';
-            const reference_pageID = {
-                activity_type_id: changeValue.comment_id,
-                activity_subType_id: changeValue.post_id,
-            };
-            const source_type = 'webhook';
-            const now = new Date();
-            const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-            const nextAPI_call_dateTime = next24FromNow;
-            await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
-
-            //console.log("comment Data: ",fullComment);
-            const io = req.app.get('io');           // retrieve the same io instance
-            io.to(`post:${String(commentData.post_id)}`).emit('comment:new', {
-                originSocketId: null,                 // webhook is backend‑originated
-                data: fullComment
-            });
-            // Call N8N webhook
-
-            // Build image URL
-            let imageUrl = '';
-            if (userPost.source === 'Platform') {
-                let media = typeof userPost.post_media === 'string'
-                    ? JSON.parse(userPost.post_media)
-                    : userPost.post_media;
-                const host = req.get('host');
-                const protocol = req.protocol;
-                imageUrl = `${protocol}://${host}/uploads/images/${media.img_path}`;
-            } else if (userPost.source === 'API') {
-                imageUrl = userPost.post_media;
-            }
-            //Prepare formattedResponse
-            const formattedResponse = {
-                Post_content: userPost.content,
-                Image_url: imageUrl,
-                Comment: changeValue.message,
-                CommentID: changeValue.comment_id
-            };
-
-            try {
-                const response = await axios.post(`${process.env.N8N_COMMENT_WEBHOOK_URL}`, {
-                    formattedResponse
+            if(!checkCommentExist){
+                // 2. Find User Post (CRITICAL: Must be found to proceed)
+                const userPost = await UserPost.findOne({
+                    where: { platform_post_id: changeValue.post_id }
                 });
-                if (response.data && response.data.output) {
-                    const commentBehaviorData = response.data.output;
-                    const objectData = commentBehaviorData.split(',').reduce((acc, part) => {
-                        const [key, value] = part.split(':').map(s => s.trim());
-                        acc[key] = value;
-                        return acc;
-                    }, {});
-                    //console.log('N8N webhook response:', response.data);
-                    // Update the comment_behavior
-                    const findComment = await PostComments.findOne({
-                        where: { comment_id: objectData.Comment_id }
+                console.log(`userPost Data: ${userPost}`.green);
+
+                if (!userPost) {
+                    console.log(`Post not found for ID: ${changeValue.post_id}. Cannot process comment.`);
+                }
+
+                const io = req.app.get('io');
+
+                // 3. Prepare and Create Incoming Comment Record
+                const commentData = {
+                    user_uuid: userPost.user_uuid,
+                    social_userid: userPost.social_user_id,
+                    platform_page_Id: userPost.page_id,
+                    platform: userPost.post_platform,
+                    post_id: changeValue.post_id,
+                    comment_id: changeValue.comment_id || null,
+                    from_id: changeValue.from.id || null,
+                    from_name: changeValue.from.name || null,
+                    comment: changeValue.message || '',
+                    parent_comment_id: changeValue?.parent_id===changeValue.post_id ? null : changeValue?.parent_id,
+                    comment_type: changeValue?.parent_id===changeValue.post_id ? 'top_level' : 'reply',
+                    comment_created_time: new Date(changeValue.created_time * 1000).toISOString().replace('Z', '+0000')
+                };
+                //console.log('commentData', commentData);
+
+                try {
+                    // Create comment
+                    const createdComment = await PostComments.create(commentData);
+
+                    // 4. Update Post Count for the INCOMING comment
+                    await userPost.increment('comments', { by: 1 });
+
+                    // 5. Fetch full comment for Socket.IO event
+                    const fullComment = await PostComments.findOne({
+                        where: { id: createdComment.id },
+                        include: [
+                            { model: UserPost,
+                            attributes: ['post_media', 'content', 'likes', 'comments', 'shares', 'engagements', 'impressions', 'unique_impressions', 'week_date']
+                            },
+                        ]
                     });
-                    if (findComment) {
-                        await findComment.update({
-                            comment_behavior: objectData.Comment_reply
-                        });
+                    
+                    // 6. Log Activity for the INCOMING comment
+                    const activityDetails = {
+                        user_uuid : userPost.user_uuid,
+                        account_social_userid : userPost.social_user_id,
+                        account_platform : userPost.post_platform,
+                        activity_type : "comment",
+                        activity_subType : "posts",
+                        action : "create",
+                        source_type : 'webhook',
+                        post_form_id : '',
+                        reference_pageID : {
+                            activity_type_id: changeValue.comment_id,
+                            activity_subType_id: changeValue.post_id,
+                        },
+                        nextAPI_call_dateTime : new Date(Date.now() + 24 * 60 * 60 * 1000)
                     }
-                    return res.json({
-                        success: true,
-                        message: "Comment behavior added successfully."
+                    await activityCreate(
+                        activityDetails.user_uuid,
+                        activityDetails.account_social_userid,
+                        activityDetails.account_platform,
+                        activityDetails.activity_type,
+                        activityDetails.activity_subType,
+                        activityDetails.action,
+                        activityDetails.source_type,
+                        activityDetails.post_form_id,
+                        activityDetails.reference_pageID,
+                        activityDetails.nextAPI_call_dateTime
+                    );
+                    //console.log("comment Data: ",fullComment);
+
+                    // 7. Emit Socket.IO event for the INCOMING comment
+                    io.to(`post:${String(commentData.post_id)}`).emit('comment:new', {
+                        originSocketId: null,
+                        data: fullComment
                     });
-                } else {
-                    console.warn('N8N webhook returned no output.');
-                    return res.status(500).json({
-                        success: false,
-                        message: "N8N webhook returned invalid data."
-                    });
+                    
+                    // 8. Build image URL
+                    let imageUrl = '';
+                    if (userPost.source === 'Platform') {
+                        try {
+                            // Ensure post_media is treated as JSON if it's a string
+                            let media = typeof userPost.post_media === 'string'
+                                ? JSON.parse(userPost.post_media)
+                                : userPost.post_media;
+                            const host = req.get('host');
+                            const protocol = req.protocol;
+                            imageUrl = media?.img_path ? `${protocol}://${host}/uploads/images/${media.img_path}` : '';
+                        } catch (e) {
+                            console.error("Error parsing post_media for image URL:", e.message);
+                        }
+                    } else if (userPost.source === 'API') {
+                        imageUrl = userPost.post_media;
+                    }
+
+                    // 9. Prepare formatted response for N8N Webhook 1 (Behavior)
+                    const formattedResponse = {
+                        Post_content: userPost.content,
+                        Image_url: imageUrl,
+                        Comment: changeValue.message,
+                        CommentID: changeValue.comment_id
+                    };
+
+                    let commentBehavior;
+                    let aiReplyData = null;
+
+                    try {
+                        // 10. Call N8N Webhook 1 (Behavior Analysis)
+                        const behaviorResponse = await axios.post(`${process.env.N8N_COMMENT_WEBHOOK_URL}`, {
+                            formattedResponse
+                        });
+                        if (behaviorResponse.data && behaviorResponse.data.output) {
+                            let objectData = {};
+                            if (typeof behaviorResponse.data.output === 'string') {
+                                // Fragile string parsing retained from original code for Comment_id and Comment_reply
+                                behaviorResponse.data.output.split(',').forEach(part => {
+                                    const [key, value] = part.split(':').map(s => s.trim());
+                                    if (key && value) {
+                                        objectData[key] = value;
+                                    }
+                                });
+                                commentBehavior = objectData.Comment_reply;
+                            } else if (typeof behaviorResponse.data.output === 'object') {
+                                // Preferred: if N8N returns a JSON object directly
+                                objectData = behaviorResponse.data.output;
+                                commentBehavior = objectData.Comment_reply;
+                            } else {
+                                console.warn('N8N webhook 1 returned an unhandled data type for output.');
+                            }
+
+                            // 11. Update the original comment with the behavior
+                            if (objectData.Comment_id === changeValue.comment_id && commentBehavior) {
+                                await PostComments.update(
+                                    { comment_behavior: commentBehavior },
+                                    { where: { comment_id: objectData.Comment_id } }
+                                );
+                                console.log("Comment behavior added successfully.");
+                            } else {
+                                console.warn("Could not find/update comment with behavior data from N8N.");
+                            }
+
+                            // 12. Check Auto-Reply Settings
+                            const CommentAutoReplySettings = await Settings.findOne({
+                                where: { user_uuid: userPost.user_uuid, module_name: "Comment", module_status: "1" },
+                                raw: true
+                            });
+
+                            if(CommentAutoReplySettings){
+                                console.log("auto comment is allowed".green);
+
+                                // 13. Call N8N Webhook 2 (AI Reply Generation)
+                                const AI_Reply = await axios.post(`${process.env.N8N_POST_COMMENT_AUTO_REPLY_WEBHOOK}`, {
+                                    formattedResponse
+                                });
+                                
+                                // FIX: Ensure AI_Reply data structure is correctly accessed and validated
+                                if (AI_Reply.data && AI_Reply.data.output && AI_Reply.data.output.reply) {
+                                    aiReplyData = AI_Reply.data.output;
+                                    console.log("Received Reply from AI:", aiReplyData);
+                                } else {
+                                    console.warn('AI Reply webhook returned invalid or empty reply data.');
+                                }
+                                console.log("Received Reply from AI:" ,AI_Reply.data);
+                            }else{
+                                console.log("Post comment auto reply is not allowed.".red);
+                            }
+                        } else {
+                            console.warn('N8N webhook 1 returned no output or invalid data.');
+                        }
+                    } catch (axiosError) {
+                        console.error('Error triggering N8N webhook 1 (Behavior):', axiosError.message);
+                    }
+
+                    // --- Execute Auto-Reply if data exists ---
+                    if (aiReplyData) {
+                        try {
+                            const socialPageData = await SocialUserPage.findOne({
+                                attributes: ['user_uuid', 'token', 'social_userid', 'page_platform', 'pageName'],
+                                where: { pageId: userPost.page_id },
+                                raw: true
+                            });
+
+                            const commentRecord = await PostComments.findOne({
+                                where: { comment_id: changeValue.comment_id } // Use the original comment ID
+                            });
+
+                            if (!socialPageData || !commentRecord) {
+                                console.warn("Cannot auto-reply: Missing page data or original comment record.");
+                                return;
+                            }
+
+                            const accessToken = socialPageData.token;
+                            const replyMessage = aiReplyData.reply;
+
+                            // 14. Post Reply to Social Platform (Assuming Facebook Graph API)
+                            const registerRes = await axios.post(
+                                `https://graph.facebook.com/v22.0/${changeValue.comment_id}/comments`,
+                                {
+                                    message: replyMessage,
+                                    access_token: accessToken
+                                }
+                            );
+
+                            const replyData = registerRes.data; // Should contain the new comment ID (replyData.id)
+                            console.log("API Reply Data:", replyData);
+                            const now = new Date();
+                            const formattedDate = now.toISOString().replace(/\.\d+Z$/, '+0000'); // Date format preserved
+
+                            // 15. Create Reply Comment Record
+                            const createReply = await PostComments.create({
+                                user_uuid: socialPageData.user_uuid,
+                                social_userid: socialPageData.social_userid,
+                                platform_page_Id: userPost.page_id,
+                                post_id: commentRecord.post_id,
+                                platform: socialPageData.page_platform,
+                                activity_id: null,
+                                comment_id: replyData.id,
+                                parent_comment_id: changeValue.comment_id, // Reply to the original comment
+                                comment: replyMessage || '',
+                                from_id: userPost.page_id || null, // Assuming page_id is the source of the reply
+                                from_name: socialPageData.pageName || 'Page Admin',
+                                comment_type: 'reply',
+                                comment_behavior: aiReplyData.behaviour,
+                                reaction_like: 0,
+                                comment_created_time: formattedDate
+                            });
+
+                            // 16. Update Post Count for the AUTO-REPLY
+                            // FIX: Comment increment is already done in step 4. This is an auto-reply *to* the comment,
+                            // and depending on platform webhooks, the auto-reply may trigger a separate webhook event
+                            // where it would be counted. If this code is responsible for counting ALL comments,
+                            // then this increment is correct. If the original design relies on the webhook system
+                            // to eventually capture this reply as a new 'comment add' event, this is a DUPLICATE increment.
+                            // Assuming it must be counted *now* for immediate UI update:
+                            // await userPost.increment('comments', { by: 1 }); // **REMOVED TO PREVENT DOUBLE COUNTING**
+                            // Rationale: The original incoming comment was counted in step 4. If the platform sends
+                            // a new webhook for the page's reply, it will be counted later. If not, the original
+                            // logic risks double-counting. We will rely on the initial count.
+
+                            const replyDataFetch = await PostComments.findOne({
+                                where: { id: createReply.id },
+                                include: [
+                                    {
+                                        model: UserPost,
+                                        attributes: ['post_media', 'content', 'likes', 'week_date'],
+                                    },
+                                ]
+                            });
+
+                            // 17. Log Activity for the AUTO-REPLY
+                            const replyActivityDetails = {
+                                user_uuid: socialPageData.user_uuid,
+                                account_social_userid: socialPageData.social_userid,
+                                account_platform: socialPageData.page_platform,
+                                activity_type: "comments",
+                                activity_subType: "posts",
+                                action: "reply",
+                                post_form_id: '',
+                                reference_pageID: {
+                                    activity_type_id: replyData.id,
+                                    activity_subType_id: commentRecord.post_id,
+                                    title: replyMessage || ''
+                                },
+                                source_type: 'auto-reply', // Use a meaningful source
+                                nextAPI_call_dateTime: '' // Placeholder from original
+                            };
+                            await activityCreate(
+                                replyActivityDetails.user_uuid,
+                                replyActivityDetails.account_social_userid,
+                                replyActivityDetails.account_platform,
+                                replyActivityDetails.activity_type,
+                                replyActivityDetails.activity_subType,
+                                replyActivityDetails.action,
+                                replyActivityDetails.source_type,
+                                replyActivityDetails.post_form_id,
+                                replyActivityDetails.reference_pageID,
+                                replyActivityDetails.nextAPI_call_dateTime
+                            );
+
+                            // 18. Emit Socket.IO event for the AUTO-REPLY
+                            io.to(`post:${commentRecord.post_id}`).emit('comment:new', {
+                                originSocketId: req.headers['x-socket-id'] || null, // Assuming the request context is available
+                                data: replyDataFetch
+                            });
+
+                            console.log("Comment replied successfully.");
+
+                        } catch (error) {
+                            console.error('Facebook comment posting Error:', error.response?.data || error.message);
+                        }
+                    }
+                } catch (e) {
+                    console.error('CRITICAL ERROR during initial comment creation/processing:', e.message);
                 }
-            } catch (axiosError) {
-                console.error('Error triggering N8N webhook:', axiosError.message);
-                return res.status(500).json({
-                    success: false,
-                    message: "Failed to trigger N8N webhook."
-                });
+            } else {
+                console.log('Comment already found in DB. Skipping processing.');
             }
         } else if(changeValue && changeValue.item === 'comment' && changeValue.verb==='edited'){
-            console.log('webhook comment edit: ',changeValue);
+            //console.log('webhook comment edit: ',changeValue);
             const fullComment = await PostComments.findOne({
             where: {
                     [Op.or]: [
@@ -6597,107 +7298,105 @@ app.post('/facebook/webhook', async (req, res) => {
                     ]
                 }
             });
-            if(fullComment){
+            if(fullComment && fullComment.comment!=changeValue.message){
                 await fullComment.update({ comment: changeValue.message });
-            }
-
-            const user_UUID = fullComment.user_uuid;
-            const account_social_userid = fullComment.social_user_id;
-            const account_platform = fullComment.post_platform;
-            const activity_type = "comment";
-            const activity_subType = "posts";
-            const action = "update";
-            const post_form_id = '';
-            const reference_pageID = {
-                activity_type_id: changeValue.comment_id,
-                activity_subType_id: changeValue.post_id,
-            };
-            const source_type = 'webhook';
-            const now = new Date();
-            const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-            const nextAPI_call_dateTime = next24FromNow;
-            await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
-
-            const io = req.app.get('io');           // retrieve the same io instance
-            io.to(`post:${String(fullComment.post_id)}`).emit('comment:new', {
-                originSocketId: null,                 // webhook is backend‑originated
-                data: fullComment
-            });
-            // Call N8N webhook
-            const userPost = await UserPost.findOne({
-                where: {
-                    platform_post_id: fullComment.post_id
-                }
-            });
-
-            if(userPost)
-            {
-                let imageUrl = '';
-                if (userPost.source === 'Platform') {
-                    let media = typeof userPost.post_media === 'string'
-                        ? JSON.parse(userPost.post_media)
-                        : userPost.post_media;
-                    const host = req.get('host');
-                    const protocol = req.protocol;
-                    imageUrl = `${protocol}://${host}/uploads/images/${media.img_path}`;
-                } else if (userPost.source === 'API') {
-                    imageUrl = userPost.post_media;
-                }
-                // Prepare formattedResponse
-                const formattedResponse = {
-                    Post_content: userPost.content,
-                    Image_url: imageUrl,
-                    Comment: changeValue.message,
-                    CommentID: changeValue.comment_id
+                const user_UUID = fullComment.user_uuid;
+                const account_social_userid = fullComment.social_user_id;
+                const account_platform = fullComment.post_platform;
+                const activity_type = "comment";
+                const activity_subType = "posts";
+                const action = "update";
+                const post_form_id = '';
+                const reference_pageID = {
+                    activity_type_id: changeValue.comment_id,
+                    activity_subType_id: changeValue.post_id,
                 };
-                // Prepare commentData
-                try {
-                    const response = await axios.post(`${process.env.N8N_COMMENT_WEBHOOK_URL}`, {
-                        formattedResponse
-                    });
-                    if (response.data && response.data.output) {
-                        const commentBehaviorData = response.data.output;
-                        const objectData = commentBehaviorData.split(',').reduce((acc, part) => {
-                            const [key, value] = part.split(':').map(s => s.trim());
-                            acc[key] = value;
-                            return acc;
-                        }, {});
-                        console.log('N8N webhook response:', response.data);
-                        // Update the comment_behavior
-                        const findComment = await PostComments.findOne({
-                            where: {
-                                [Op.or]: [
-                                    { comment_id: objectData.Comment_id },
-                                    { parent_comment_id: objectData.Comment_id }
-                                ]
-                            }
-                        });
-                        if (findComment) {
-                            await findComment.update({
-                                comment_behavior: objectData.Comment_reply
-                            });
-                        }
-                        return res.json({
-                            success: true,
-                            message: "Comment behavior added successfully."
-                        });
-                    } else {
-                        console.warn('N8N webhook returned no output.');
-                        return res.status(500).json({
-                            success: false,
-                            message: "N8N webhook returned invalid data."
-                        });
+                const source_type = 'webhook';
+                const now = new Date();
+                const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                const nextAPI_call_dateTime = next24FromNow;
+                await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
+                const io = req.app.get('io');           // retrieve the same io instance
+                io.to(`post:${String(fullComment.post_id)}`).emit('comment:new', {
+                    originSocketId: null,                 // webhook is backend‑originated
+                    data: fullComment
+                });
+                // Call N8N webhook
+                const userPost = await UserPost.findOne({
+                    where: {
+                        platform_post_id: fullComment.post_id
                     }
-                } catch (axiosError) {
-                    console.error('Error triggering N8N webhook:', axiosError.message);
-                    return res.status(500).json({
-                        success: false,
-                        message: "Failed to trigger N8N webhook."
-                    });
+                });
+                if(userPost)
+                {
+                    let imageUrl = '';
+                    if (userPost.source === 'Platform') {
+                        let media = typeof userPost.post_media === 'string'
+                            ? JSON.parse(userPost.post_media)
+                            : userPost.post_media;
+                        const host = req.get('host');
+                        const protocol = req.protocol;
+                        imageUrl = `${protocol}://${host}/uploads/images/${media.img_path}`;
+                    } else if (userPost.source === 'API') {
+                        imageUrl = userPost.post_media;
+                    }
+                    // Prepare formattedResponse
+                    const formattedResponse = {
+                        Post_content: userPost.content,
+                        Image_url: imageUrl,
+                        Comment: changeValue.message,
+                        CommentID: changeValue.comment_id
+                    };
+                    // Prepare commentData
+                    try {
+                        const response = await axios.post(`${process.env.N8N_COMMENT_WEBHOOK_URL}`, {
+                            formattedResponse
+                        });
+                        if (response.data && response.data.output) {
+                            const commentBehaviorData = response.data.output;
+                            const objectData = commentBehaviorData.split(',').reduce((acc, part) => {
+                                const [key, value] = part.split(':').map(s => s.trim());
+                                acc[key] = value;
+                                return acc;
+                            }, {});
+                            console.log('N8N webhook response:', response.data);
+                            // Update the comment_behavior
+                            const findComment = await PostComments.findOne({
+                                where: {
+                                    [Op.or]: [
+                                        { comment_id: objectData.Comment_id },
+                                        { parent_comment_id: objectData.Comment_id }
+                                    ]
+                                }
+                            });
+                            if (findComment) {
+                                await findComment.update({
+                                    comment_behavior: objectData.Comment_reply
+                                });
+                            }
+                            console.log("Comment behavior added successfully.");
+                            // return res.json({
+                            //     success: true,
+                            //     message: "Comment behavior added successfully."
+                            // });
+                        } else {
+                            console.warn('N8N webhook returned no output.');
+                            // return res.status(500).json({
+                            //     success: false,
+                            //     message: "N8N webhook returned invalid data."
+                            // });
+                        }
+                    } catch (axiosError) {
+                        console.error('Error triggering N8N webhook:', axiosError.message);
+                        // return res.status(500).json({
+                        //     success: false,
+                        //     message: "Failed to trigger N8N webhook."
+                        // });
+                    }
                 }
             }
-        } else if(changeValue && changeValue.item === 'comment' && changeValue.verb==='remove'){ 
-            console.log('webhook comment remove: ',changeValue);            
+        } else if(changeValue && changeValue.item === 'comment' && changeValue.verb==='remove'){
+            //console.log('webhook comment remove: ',changeValue);
             const fullComment = await PostComments.findOne({
             where: {
                     [Op.or]: [
@@ -6705,166 +7404,299 @@ app.post('/facebook/webhook', async (req, res) => {
                     { parent_comment_id: changeValue.comment_id }
                     ]
                 }
-            }); 
+            });
             if (fullComment) {
                 await fullComment.destroy();
-            } 
-            const userPost = await UserPost.findOne({
-                where: {
-                    platform_post_id: changeValue.post_id
+                const userPost = await UserPost.findOne({
+                    where: {
+                        platform_post_id: changeValue.post_id
+                    }
+                });
+                if (!userPost) {
+                    console.log('Post not found.');
+                    //return res.status(404).json({ message: "Post not found." });
                 }
-            });
-            if (!userPost) {
-                return res.status(404).json({ message: "Post not found." });
-            } 
-            
-            if (userPost.comments > 0) {
-                await userPost.decrement('comments', { by: 1 });
-            }          
-            
-
-            const user_UUID = userPost.user_uuid;
-            const account_social_userid = userPost.social_user_id;
-            const account_platform = userPost.post_platform;
-            const activity_type = "comment";
-            const activity_subType = "posts";
-            const action = "delete";
-            const post_form_id = '';
-            const reference_pageID = {
-                activity_type_id: changeValue.comment_id,
-                activity_subType_id: changeValue.post_id,
-            };
-            const source_type = 'webhook';
-            const now = new Date();
-            const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-            const nextAPI_call_dateTime = next24FromNow;
-            await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
-
+                if (userPost.comments > 0) {
+                    await userPost.decrement('comments', { by: 1 });
+                }
+                const user_UUID = userPost.user_uuid;
+                const account_social_userid = userPost.social_user_id;
+                const account_platform = userPost.post_platform;
+                const activity_type = "comment";
+                const activity_subType = "posts";
+                const action = "delete";
+                const post_form_id = '';
+                const reference_pageID = {
+                    activity_type_id: '',
+                    activity_subType_id: changeValue.post_id,
+                };
+                const source_type = 'webhook';
+                const now = new Date();
+                const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                const nextAPI_call_dateTime = next24FromNow;
+                await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
+            }
         } else if(webhookResponse.object === 'page' &&  Array.isArray(webhookResponse.entry) && webhookResponse.entry.some(entry =>
-                Array.isArray(entry.messaging) &&
-                entry.messaging.some(m => m.message && !m.message.is_echo)
+                Array.isArray(entry.messaging) && entry.messaging.some(m => m.message && !m.message.is_echo)
             )) {
-            /* :one:  Immediately ACK Facebook */
-            res.status(200).send('EVENT_RECEIVED');
-            /* :two:  Quick sanity check */
             if (req.body.object !== 'page') return;
             const io = req.app.get('io');
             if (!io) return console.error(':warning:  Socket.IO missing');
-            /* :three:  Handle every page → every messaging event */
+            /*  Handle every page → every messaging event */
             for (const entry of req.body.entry || []) {
                 const pageId = entry.id;
                 for (const evt of entry.messaging || []) {
-                    /* Ignore echo / telemetry */
-                    if (!evt.message || evt.message.is_echo) continue;
-                    const text       = evt.message.text || '';
-                    const mid        = evt.message.mid;          // FB message‑id
-                    const senderId   = evt.sender.id;            // PSID of visitor
-                    const tsISO      = new Date(evt.timestamp).toISOString();
-                    /* ── :four:  Find or create conversation row ── */
-                    let convo = await InboxConversations.findOne({
-                        where: { external_userid: senderId, social_pageid: pageId }
-                    });                    
+                    try {
+                        if (!evt.message || evt.message.is_echo) continue;
 
-                    if (!convo) {
-                        /* No mapping yet ⇒ create a new conversation shell */
+                        const text     = evt.message.text || '';
+                        const mid      = evt.message.mid;
+                        const senderId = evt.sender.id;
+                        const tsISO    = new Date(evt.timestamp).toISOString();
+
+                        // 0) dedupe incoming platform message (skip if already stored)
+                        if (mid) {
+                            const dup = await InboxMessages.findOne({ where: { platform_message_id: mid } });
+                            if (dup) {
+                                // already processed this incoming message
+                                continue;
+                            }
+                        }
+
+                        // 1) find conversation and page info
+                        let convo = await InboxConversations.findOne({
+                            where: { external_userid: senderId, social_pageid: pageId }
+                        });
+
                         const socialPage = await SocialUserPage.findOne({
                             where: { pageId, status: 'Connected' },
-                            raw : true
+                            raw: true
                         });
                         if (!socialPage) {
                             console.warn(':no_entry_sign:  Unknown pageId, skip:', pageId);
                             continue;
                         }
-                        convo = await InboxConversations.create({
-                            conversation_id : convo.conversation_id,               // or any id generation
-                            user_uuid       : socialPage.user_uuid,
-                            social_pageid   : pageId,
-                            social_platform : 'facebook',
-                            external_userid : senderId,
-                            external_username: 'Visitor',              // you can fetch profile name via graph if needed
-                            snippet         : text,
-                            updatedAt       : new Date()
+
+                        // 2) if no convo -> create it properly (generate uuid)
+                        if (!convo) {
+                            convo = await InboxConversations.create({
+                                conversation_id : uuidv4(),      // <- create new uuid
+                                user_uuid       : socialPage.user_uuid,
+                                social_userid   : socialPage.social_userid,
+                                social_pageid   : pageId,
+                                social_platform : 'facebook',
+                                external_userid : senderId,
+                                external_username: 'Visitor',
+                                snippet         : text,
+                                updatedAt       : new Date()
+                            });
+                        }
+
+                        // 3) is chat open? (safe fetchSockets fallback)
+                        let isChatOpen = false;
+                        try {
+                            const socketsInRoom = await io.in(convo.conversation_id).fetchSockets();
+                            isChatOpen = socketsInRoom && socketsInRoom.length > 0;
+                        } catch (e) {
+                            // older socket.io or unexpected: best-effort fallback
+                            try {
+                                const room = io.sockets.adapter.rooms.get(convo.conversation_id);
+                                isChatOpen = room ? room.size > 0 : false;
+                            } catch (ee) {
+                                isChatOpen = false;
+                            }
+                        }
+
+                        // 4) Persist incoming visitor message (now that convo exists)
+                        const saved = await InboxMessages.create({
+                            conversation_id     : convo.conversation_id,
+                            platform_message_id : mid || null,
+                            sender_type         : 'visitor',
+                            message_text        : text,
+                            message_type        : 'text',
+                            is_read             : isChatOpen ? 'yes' : 'no',
+                            timestamp           : tsISO
                         });
-                    }
-                    /* ── :five:  De‑duplication ── */
-                    const dup = await InboxMessages.findOne({ where: { platform_message_id: mid } });
-                    if (dup) continue;
-                    /* ── :six:  Mark as read if any socket is viewing this convo ── */
-                    const socketsInRoom = await io.in(convo.conversation_id).fetchSockets();
-                    const isChatOpen    = socketsInRoom.length > 0;
-                    /* ── :seven:  Persist the message ── */
-                    const saved = await InboxMessages.create({
-                        conversation_id     : convo.conversation_id,
-                        platform_message_id : mid,
-                        sender_type         : 'visitor',
-                        message_text        : text,
-                        message_type        : 'text',
-                        is_read             : isChatOpen ? 'yes' : 'no',
-                        timestamp           : tsISO
-                    });
-                    /* ── :eight:  Update conversation snippet & updatedAt ── */
-                    await convo.update({
-                        snippet   : text,
-                        updatedAt : new Date()
-                    });
-                    /* ── :nine:  Real‑time emits ── */
-                    /*  open chat window  */
-                    io.to(convo.conversation_id).emit('receive_message', {
-                        ...saved.toJSON(),
-                        external_username : convo.external_username,
-                        social_platform   : 'facebook',
-                        page_id           : convo.social_pageid,
-                        sender_id         : convo.external_userid,
-                    });
-                    /*  sidebar of other tabs  */
-                    if (!isChatOpen) {
-                        io.to(convo.conversation_id).emit('refresh_sidebar', {
-                            conversation_id : convo.conversation_id,
-                            snippet         : text,
-                            unread_delta    : 1
+
+                        // 5) Update convo snippet & updatedAt
+                        await convo.update({
+                            snippet   : text,
+                            updatedAt : new Date()
                         });
+
+                        // 6) Real-time emits for visitor message
+                        io.to(convo.conversation_id).emit('receive_message', {
+                            ...saved.toJSON(),
+                            external_username : convo.external_username,
+                            social_platform   : 'facebook',
+                            page_id           : convo.social_pageid,
+                            sender_id         : convo.external_userid,
+                        });
+
+                        if (!isChatOpen) {
+                            io.to(convo.conversation_id).emit('refresh_sidebar', {
+                                conversation_id : convo.conversation_id,
+                                snippet         : text,
+                                unread_delta    : 1
+                            });
+                        }
+
+                        io.to(convo.user_uuid).emit('global_inbox_update', {
+                            conversation_id     : convo.conversation_id,
+                            external_username   : convo.external_username,
+                            social_platform     : 'facebook',
+                            page_id             : convo.social_pageid,
+                            sender_id           : convo.external_userid,
+                            message_text        : text,
+                            platform_message_id : mid || null,
+                            sender_type         : 'visitor',
+                            is_read             : isChatOpen ? 'yes' : 'no',
+                            timestamp           : tsISO
+                        });
+
+                        // 7) activityCreate (keeps your existing audit)
+                        const user_UUID = convo.user_uuid;
+                        const account_social_userid = convo.social_userid;
+                        const account_platform = 'facebook';
+                        const activity_type = "message";
+                        const activity_subType = "page";
+                        const action = "create";
+                        const post_form_id = '';
+                        const reference_pageID = {
+                            activity_type_id: convo.social_pageid,
+                            activity_subType_id: mid,
+                        };
+                        const source_type = 'webhook';
+                        const now = new Date();
+                        const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                        const nextAPI_call_dateTime = next24FromNow;
+                        await activityCreate(user_UUID, account_social_userid, account_platform, activity_type, activity_subType, action, source_type, post_form_id, reference_pageID, nextAPI_call_dateTime);
+
+                        // 8) Optional: trigger N8N (only if settings + knowledge base exist)
+                        const settings = await Settings.findOne({
+                            where: { user_uuid: socialPage.user_uuid, module_name: "Message", module_status: '1' },
+                            raw: true
+                        });
+
+                        const knowledgeBaseMeta = await KnowledgebaseMeta.findOne({
+                            where: { user_uuid: socialPage.user_uuid, pages_id: pageId },
+                            raw: true
+                        });
+
+                        const knowledgeBaseData = knowledgeBaseMeta ? await KnowledgeBase.findOne({
+                            where: { user_uuid: socialPage.user_uuid, id: knowledgeBaseMeta.knowledgeBase_id, status: "Connected" },
+                            raw: true
+                        }) : null;
+
+                        if (socialPage && settings && knowledgeBaseMeta && knowledgeBaseData) {
+                            try {
+                                const response = await axios.post(`${process.env.N8N_USER_MESSAGE_AUTO_REPLY_WEBHOOK}`, {
+                                    message: text,
+                                    meta_data: knowledgeBaseMeta.namespace_id
+                                }, { timeout: 15_000 });
+
+                                console.log("🤖 N8N auto-reply response", response.data);
+
+                                // Accept both shapes: { reply: '...' } or { output: { reply: '...' } }
+                                const replyText = (response.data && (response.data.reply || (response.data.output && response.data.output.reply))) || null;
+
+                                if (replyText && replyText.trim()) {
+                                    // 8.a) send reply to Facebook and capture the fb returned message id if any
+                                    const pageToken = socialPage.token;
+                                    const fbSendUrl = `https://graph.facebook.com/v22.0/me/messages`;
+                                    let fbSendResult = null;
+                                    try {
+                                        fbSendResult = await axios.post(
+                                            fbSendUrl,
+                                            {
+                                                recipient: { id: senderId },
+                                                message: { text: replyText },
+                                            },
+                                            { params: { access_token: pageToken } }
+                                        );
+                                    } catch (fbErr) {
+                                        console.error('❌ Error sending reply to FB:', fbErr.response?.data || fbErr.message);
+                                        // don't throw — still try to save+emit the AI reply locally so the inbox shows it
+                                    }
+
+                                    const fbMessageId = fbSendResult?.data?.message_id || fbSendResult?.data?.message?.mid || null;
+
+                                    // 8.b) save AI reply in DB
+                                    const nowUtc = new Date().toISOString().replace('Z', '+0000');
+                                    const aiMsg = await InboxMessages.create({
+                                        conversation_id     : convo.conversation_id,
+                                        platform_message_id : fbMessageId,
+                                        sender_type         : 'page',
+                                        message_text        : replyText,
+                                        message_type        : 'text',
+                                        is_read             : 'yes',
+                                        timestamp           : nowUtc
+                                    });
+
+                                    // 8.c) update conversation snippet & updatedAt
+                                    await convo.update({
+                                        snippet   : replyText,
+                                        updatedAt : new Date()
+                                    });
+
+                                    // ✅ Always emit to both rooms (conversation + global inbox)
+                                    // React already handles deduplication by comparing conversation_id
+
+                                    // 1️⃣ Emit to conversation room (if open or later joined)
+                                    io.to(convo.conversation_id).emit('receive_message', {
+                                        ...aiMsg.toJSON(),
+                                        external_username : convo.external_username,
+                                        social_platform   : 'facebook',
+                                        page_id           : convo.social_pageid,
+                                        sender_id         : convo.social_pageid,
+                                        is_auto_reply     : true
+                                    });
+
+                                    // 2️⃣ Always emit to global inbox (this triggers sidebar refresh)
+                                    io.to(convo.user_uuid).emit('global_inbox_update', {
+                                        conversation_id     : convo.conversation_id,
+                                        external_username   : convo.external_username,
+                                        social_platform     : 'facebook',
+                                        page_id             : convo.social_pageid,
+                                        sender_id           : convo.social_pageid,
+                                        message_text        : replyText,
+                                        sender_type         : 'page',
+                                        is_auto_reply       : true,
+                                        timestamp           : nowUtc
+                                    });
+
+                                    // 3️⃣ Force-refresh sidebar so unread badge/snippet update
+                                    io.to(convo.user_uuid).emit('refresh_sidebar', {
+                                        conversation_id : convo.conversation_id,
+                                        snippet         : replyText,
+                                        unread_delta    : 1
+                                    });
+
+                                    console.log(`✅ Auto-reply emitted for conversation ${convo.conversation_id}`);
+
+                                } // end if replyText
+                            } catch (err) {
+                                console.error('❌ N8N auto-reply error:', err.response?.data || err.message);
+                            }
+                        } // end if settings + knowledge base
+                    } catch (outerErr) {
+                        console.error('Webhook message processing error:', outerErr && (outerErr.response?.data || outerErr.message || outerErr));
+                        // continue with next evt
+                        continue;
                     }
-                    /*  global inbox for this user (all pages)  */
-                    io.to(convo.user_uuid).emit('global_inbox_update', {
-                        conversation_id     : convo.conversation_id,
-                        external_username   : convo.external_username,
-                        social_platform     : 'facebook',
-                        page_id             : convo.social_pageid,
-                        sender_id           : convo.external_userid,
-                        message_text        : text,
-                        platform_message_id : mid,
-                        sender_type         : 'visitor',
-                        is_read             : isChatOpen ? 'yes' : 'no',
-                        timestamp           : tsISO
-                    });
-                    const user_UUID = convo.user_uuid;
-                    const account_social_userid = convo.social_userid;
-                    const account_platform = 'facebook';
-                    const activity_type = "message";
-                    const activity_subType = "page";
-                    const action = "create";
-                    const post_form_id = '';
-                    const reference_pageID = {
-                        activity_type_id: convo.social_pageid,
-                        activity_subType_id: mid,
-                    };
-                    const source_type = 'webhook';
-                    const now = new Date();
-                    const next24FromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-                    const nextAPI_call_dateTime = next24FromNow;
-                    await activityCreate(user_UUID,account_social_userid,account_platform,activity_type,activity_subType,action,source_type,post_form_id,reference_pageID,nextAPI_call_dateTime);
-                    console.log(':envelope_with_arrow: saved & broadcast:', mid);
-                }
+                } // end for evt
+
             }
         }
         
     } catch (error) {
         console.error('Webhook processing error:', error.message);
-        return res.status(500).json({
-            success: false,
-            message: "Error processing webhook."
-        });
+        // return res.status(500).json({
+        //     success: false,
+        //     message: "Error processing webhook."
+        // });
     }
+    
 }); 
 
 //End Facebook comments section
@@ -6879,28 +7711,60 @@ app.post(`/${prefix}/settings/system_auto_functions`, async (req, res) => {
         if (err) {
             return res.status(401).json({ message: "Token not valid." });
         }
-        const { module_name, module_status } = req.body;
+        const { module_name, module_status } = req.body;        
         const user_uuid = authData?.userData?.uuid;
         if (!module_name || typeof module_status === 'undefined' || !user_uuid) {
             return res.status(400).json({ message: "Invalid or missing data." });
         }
-        try {
-            const [setting, created] = await Settings.findOrCreate({
-                where: {
-                    user_uuid,
-                    module_name,
-                },
-                defaults: {
-                    module_status,
-                },
-            });
-            if (!created) {
-                await setting.update({ module_status });
+        try {            
+            if(module_name==='Message' && module_status===true){
+                const knowledgeBaseCount = await KnowledgeBase.count({
+                    where: {
+                        user_uuid: authData.userData.uuid,
+                        //status: 'Connected'
+                    }
+                });
+
+                if(knowledgeBaseCount > 0){
+                    const [setting, created] = await Settings.findOrCreate({
+                        where: {
+                            user_uuid,
+                            module_name,
+                        },
+                        defaults: {
+                            module_status,
+                        },
+                    });
+
+                    await setting.update({ module_status });
+                    return res.status(200).json({
+                        success: true,
+                        message: "System auto-functions setting update successfully.",
+                    });
+                } else {
+                    return res.status(401).json({
+                        success: false,
+                        message: "Required knowledge base setup for messages auto reply.",
+                    });
+                }
+            } else {
+                const [setting, created] = await Settings.findOrCreate({
+                    where: {
+                        user_uuid,
+                        module_name,
+                    },
+                    defaults: {
+                        module_status,
+                    },
+                });
+                if (!created) {
+                    await setting.update({ module_status });
+                }
+                return res.status(200).json({
+                    success: true,
+                    message: "System auto-functions setting saved successfully.",
+                });
             }
-            return res.status(200).json({
-                success: true,
-                message: "System auto-functions setting saved successfully.",
-            });
         } catch (error) {
             console.error("Settings save error:", error);
             return res.status(500).json({
@@ -6925,16 +7789,27 @@ app.get(`/${prefix}/settings`, async (req, res) => {
         if (err) {
             return res.status(401).json({ message: "Token not valid." });
         }
-        const settingData = await Settings.findOne({
+        const settingData = await Settings.findAll({
             where: {
                 user_uuid: authData.userData.uuid                    
+            },
+            attributes: {
+                exclude: ["user_uuid","createdAt", "updatedAt"]
+            },
+        });
+
+        const knowledgeBaseCount = await KnowledgeBase.count({
+            where: {
+                user_uuid: authData.userData.uuid,
+                //status: 'Connected'
             }
         });
 
         if(settingData){
             return res.json({
                 success: true,
-                settingData: settingData
+                settingData: settingData,
+                knowledgeBaseCount:knowledgeBaseCount
             });
         } else {
             return res.json({
@@ -8181,7 +9056,7 @@ async function saveSinglePostsInsights(postsData) {
     const timestampSince = Math.floor(sinceDate.getTime() / 1000);    
     if(postsData[0].platform==='facebook')
     {    
-        console.log('if platform:', postsData[0].platform);
+        //console.log('if platform:', postsData[0].platform);
         try {
             const postUrl = `https://graph.facebook.com/v22.0/${postsData[0].platform_post_id}`;
             const response = await axios.get(postUrl, {
@@ -9086,7 +9961,7 @@ async function fetchLinkedInPageAnalytics(pagedetail) {
         }
     }
 
-    console.log("✅ Prepared LinkedIn analytics records:", allRecords.length);
+    //console.log("✅ Prepared LinkedIn analytics records:", allRecords.length);
 
     if (errors.length > 0) {
         console.warn('⚠️ Some LinkedIn analytics failed:', errors);
@@ -9131,6 +10006,411 @@ async function fetchLinkedInPageAnalytics(pagedetail) {
         console.log('No LinkedIn analytics records fetched.');
     }
 }
+
+// Knowledge base functions
+    app.get(`/${prefix}/knowledgebase`, async (req, res) => {
+        const token = req.token;
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: "No token provided."
+            });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) {
+                return res.status(401).json({ message: "Token not valid." });
+            }
+            try {
+                const findUserKnowledgeBase = await KnowledgeBase.findAll({
+                    where: {
+                        user_uuid: authData.userData.uuid,
+                    },
+                    attributes: {
+                        exclude: ["updatedAt", "user_uuid"]
+                    },
+                    order: [["createdAt", "DESC"]]
+                });
+                if (findUserKnowledgeBase.length === 0) {
+                    return res.status(404).json({
+                        success: false,
+                        message: "Records not found.",
+                    });
+                }
+                const knowledgeBaseData = [];
+                for (const knowledgeBase of findUserKnowledgeBase) {
+                    const FindKnowledgeBaseMeta = await KnowledgebaseMeta.findAll({
+                        where: { knowledgeBase_id: knowledgeBase.id },
+                        attributes: ["social_account_id", "pages_id", "social_platform"],
+                    });
+                    // :white_check_mark: Collect pages for this knowledge base
+                    //const pages = FindKnowledgeBaseMeta.map(meta => meta.pages_id).filter(Boolean);
+                    //const social_platforms = [...new Set(FindKnowledgeBaseMeta.map(meta => meta.social_platform))];
+                    // :white_check_mark: Build platformdata only for this KB
+                    //const platformdata = {};
+                    // for (const meta of FindKnowledgeBaseMeta) {
+                    //     const platform = meta.social_platform || "unknown";
+                    //     const accountId = meta.social_account_id || "unknown";
+                    //     const pageId = meta.pages_id;
+                    //     if (!platformdata[platform]) {
+                    //         platformdata[platform] = {};
+                    //     }
+                    //     if (!platformdata[platform][accountId]) {
+                    //         platformdata[platform][accountId] = [{ pages: [] }];
+                    //     }
+                    //     if (!platformdata[platform][accountId][0].pages.includes(pageId)) {
+                    //         platformdata[platform][accountId][0].pages.push(pageId);
+                    //     }
+                    // }
+                    //const socialDataDetail = JSON.stringify([{ pages }]);
+                    knowledgeBaseData.push({
+                        ...knowledgeBase.dataValues,
+                        ///social_platform: JSON.stringify(social_platforms),
+                        //socialDataDetail,
+                        //platformdata, // :white_check_mark: added per KB
+                    });
+                }
+                return res.status(200).json({
+                    success: true,
+                    message: "Records fetched successfully.",
+                    data: knowledgeBaseData
+                });
+            } catch (error) {
+                console.error(error);
+                return res.status(500).json({
+                    success: false,
+                    message: "Something went wrong while fetching knowledge base.",
+                });
+            }
+        });
+    });
+    app.post(`/${prefix}/save-knowledgebase`, uploadUserProfileImage, async (req, resp) => {
+        const token = req.headers["authorization"]?.split(" ")[1];
+        if (!token) {
+            return resp.status(401).json({ success: false, message: "No token provided." });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) {
+                return resp.status(401).json({ success: false, message: "Invalid token" });
+            }
+            try {
+                let { knowledgeBaseData, selectedPages } = req.body;
+                // :jigsaw: Parse JSON strings into objects/arrays
+                if (typeof knowledgeBaseData === "string") {
+                    knowledgeBaseData = JSON.parse(knowledgeBaseData);
+                }
+                if (typeof selectedPages === "string") {
+                    selectedPages = JSON.parse(selectedPages);
+                }
+                if (
+                    !knowledgeBaseData.knowledgeBaseTitle ||
+                    !knowledgeBaseData.knowledgeBaseContent ||
+                    !Array.isArray(selectedPages) ||
+                    selectedPages.length === 0
+                ) {
+                    return resp.status(400).json({
+                        success: false,
+                        message: "Missing required fields or selected pages.",
+                    });
+                }
+                // :brain: Extract platforms (unique)
+                const platforms = [...new Set(selectedPages.map(p => p.page_platform))];
+                 // :jigsaw: Group pages by their social_userid
+                const socialDataMap = {};
+                for (const page of selectedPages) {
+                    if (!socialDataMap[page.social_userid]) {
+                        socialDataMap[page.social_userid] = [];
+                    }
+                    socialDataMap[page.social_userid].push(page.pageId);
+                }
+                // :receipt: Format final socialDataDetail array
+                const socialDataDetail = Object.entries(socialDataMap).map(([socialAccount, pages]) => ({
+                    socialAccount,
+                    pages,
+                }));
+                // :jigsaw: Save only ONE record
+                const savedRecord = await KnowledgeBase.create({
+                    user_uuid: authData.userData.uuid,
+                    knowledgeBase_title: knowledgeBaseData.knowledgeBaseTitle,
+                    knowledgeBase_content: knowledgeBaseData.knowledgeBaseContent,
+                    social_platform: JSON.stringify(platforms),
+                    socialDataDetail: JSON.stringify(socialDataDetail),
+                    status: "Connected",
+                });
+
+                const namespace_id = crypto.randomUUID();
+                for (const page of selectedPages) {
+                    const savedKnowledgebaseMeta = await KnowledgebaseMeta.create({
+                        user_uuid: authData.userData.uuid,
+                        knowledgeBase_id:savedRecord.id,
+                        pages_id:page.pageId,
+                        social_account_id:page.social_userid,
+                        social_platform:page.page_platform,
+                        namespace_id: namespace_id,
+                    });
+                }
+
+                const settings = await Settings.findOne({
+                    where: { 
+                        user_uuid: authData.userData.uuid, 
+                        module_name: 'Message'
+                    }
+                });
+
+                if(!settings){
+                   await Settings.create({
+                        user_uuid: authData.userData.uuid,
+                        module_name: 'Message',
+                        module_status: '1' 
+                    });
+                }
+                // const savedRecords = [];
+                // for (const page of selectedPages) {
+                //     const saved = await KnowledgeBase.create({
+                //         user_uuid: authData.userData.uuid,
+                //         knowledgeBase_title: knowledgeBaseData.knowledgeBaseTitle,
+                //         knowledgeBase_content: knowledgeBaseData.knowledgeBaseContent,
+                //         social_userid: page.social_userid,
+                //         page_id: page.pageId,
+                //         social_platform: page.page_platform,
+                //         status: "Connected",
+                //     });
+                //     savedRecords.push(saved);
+                // }
+                // knowledgebase N8N
+                    try {
+                        const response = await axios.post(`${process.env.N8N_KNOWLEDGEBASE_WEBHOOK_URL}`, {
+                            knowledgebase_id: savedRecord.id
+                        });
+                        //console.log("knowledgebase N8N response: ",response.data);
+                    } catch(err){
+                        console.error('error while call knowledgebase N8N :', err.response?.data || err.message);
+                    }
+                // knowledgebase N8N
+                return resp.status(200).json({
+                    success: true,
+                    message: "Knowledge base saved successfully.",
+                });
+            } catch (error) {
+                console.error(error);
+                return resp.status(500).json({
+                    success: false,
+                    message: "Something went wrong while saving knowledge base.",
+                });
+            }
+        });
+    });
+    app.post(`/${prefix}/update-knowledgebase`, uploadUserProfileImage, async (req, resp) => {
+        const token = req.headers["authorization"]?.split(" ")[1];
+        if (!token) {
+            return resp.status(401).json({ success: false, message: "No token provided." });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) {
+                return resp.status(401).json({ success: false, message: "Invalid token" });
+            }
+            try {
+                let { knowledgeBaseData } = req.body;
+                if (typeof knowledgeBaseData === "string") {
+                    knowledgeBaseData = JSON.parse(knowledgeBaseData);
+                }
+                if(!knowledgeBaseData.knowledgeBase || !knowledgeBaseData.knowledgeBase_title || !knowledgeBaseData.knowledgeBase_content) {
+                    return resp.status(400).json({
+                        success: false,
+                        message: "Missing required fields or selected pages.",
+                    });
+                }
+                const knowledgeBaseId = knowledgeBaseData.knowledgeBase;
+                // Define the namespace constant here, as the user specified 'facebook'
+                //const NAMESPACE = 'facebook';
+                // 1. Find and validate the main KnowledgeBase record
+                const findUserKnowledgeBase = await KnowledgeBase.findOne({
+                    where: {
+                        user_uuid: authData.userData.uuid,
+                        id: knowledgeBaseId,
+                    }
+                });
+                if(!findUserKnowledgeBase) {
+                    return resp.status(404).json({
+                        success: false,
+                        message: "Knowledge base record not found.",
+                    });
+                }
+                // 2. Prepare fields for main KnowledgeBase update (KnowledgeBase table)
+                const updatedFields = {
+                    knowledgeBase_title: knowledgeBaseData.knowledgeBase_title,
+                    knowledgeBase_content: knowledgeBaseData.knowledgeBase_content,
+                };
+                if (knowledgeBaseData.socialDataDetail) {
+                    updatedFields.socialDataDetail = knowledgeBaseData.socialDataDetail;
+                }
+                if (knowledgeBaseData.knowledgeBase_status === "notConnected") {
+                    updatedFields.status = "notConnected";
+                } else if (knowledgeBaseData.knowledgeBase_status === "Connected") {
+                    updatedFields.status = "Connected";
+                }
+                await findUserKnowledgeBase.update(updatedFields);
+                // 3. Synchronization Logic for KnowledgebaseMeta
+                let selectedPages = [];
+                // Handle parsing if socialDataDetail is passed as a string
+                if (knowledgeBaseData.socialDataDetail) {
+                    try {
+                        selectedPages = typeof knowledgeBaseData.socialDataDetail === "string"
+                            ? JSON.parse(knowledgeBaseData.socialDataDetail)
+                            : knowledgeBaseData.socialDataDetail;
+                    } catch (e) {
+                        console.error("Failed to parse socialDataDetail:", e);
+                        // Continue without updating meta if parsing fails
+                    }
+                }
+                // Flatten the incoming data into a unique Set of keys (e.g., "accountID:pageID:namespaceID")
+                const newKnowledgebaseMetaKeys = new Set();
+                const newMetaRecords = [];
+                const findKnowledgeBaseNamesapace = await KnowledgebaseMeta.findOne({
+                    where: {
+                        knowledgeBase_id: knowledgeBaseId,
+                    },
+                    attributes: ["social_platform", "namespace_id"],
+                });
+                for (const item of selectedPages) {
+                    if (item.pages && Array.isArray(item.pages)) {
+                        for (const pageId of item.pages) {
+                            // Key now includes the hardcoded namespace
+                            const key = `${item.socialAccount}:${pageId}:${findKnowledgeBaseNamesapace.social_platform}`;
+                            newKnowledgebaseMetaKeys.add(key);
+                            // Prepare records for potential creation, including namespace_id
+                            newMetaRecords.push({
+                                knowledgeBase_id: knowledgeBaseId,
+                                social_account_id: item.socialAccount,
+                                pages_id: pageId,
+                                social_platform: findKnowledgeBaseNamesapace.social_platform,
+                                namespace_id: findKnowledgeBaseNamesapace.namespace_id, // Added namespace_id: 'facebook'
+                            });
+                        }
+                    }
+                }
+                // Fetch all existing KnowledgebaseMeta records for this knowledgeBase
+                const existingMetaRecords = await KnowledgebaseMeta.findAll({
+                    where: { knowledgeBase_id: knowledgeBaseId }
+                });
+                const deletionPromises = [];
+                const creationPromises = [];
+                // A. Identify and Queue for Deletion (Stale Records)
+                const existingMetaKeys = new Set();
+                for (const existingRecord of existingMetaRecords) {
+                    // Key now includes the existing record's namespace_id for correct matching
+                    const key = `${existingRecord.social_account_id}:${existingRecord.pages_id}:'facebook':${existingRecord.namespace_id}`;
+                    existingMetaKeys.add(key);
+                    // If the existing key is NOT in the new set, it must be deleted
+                    if (!newKnowledgebaseMetaKeys.has(key)) {
+                        deletionPromises.push(existingRecord.destroy());
+                    }
+                }
+                // B. Identify and Queue for Creation (New Records)
+                for (const newRecord of newMetaRecords) {
+                    const key = `${newRecord.social_account_id}:${newRecord.pages_id}:${newRecord.namespace_id}`;
+                    // If the new key is NOT in the existing set, it must be created
+                    if (!existingMetaKeys.has(key)) {
+                        creationPromises.push(KnowledgebaseMeta.create(newRecord));
+                    }
+                }
+                // C. Execute all pending database operations concurrently
+                await Promise.all([...deletionPromises, ...creationPromises]);
+                // 4. Send final response
+                return resp.status(200).json({
+                    success: true,
+                    message: "Knowledge base and associated metadata updated successfully.",
+                });
+            } catch (error) {
+                console.error(error);
+                return resp.status(500).json({
+                    success: false,
+                    message: "Something went wrong while saving knowledge base.",
+                });
+            }
+        });
+    });
+    app.post(`/${prefix}/knowledgebase-delete`, async (req, resp) => {
+        const token = req.headers["authorization"]?.split(" ")[1];
+        if (!token) {
+            return resp.status(401).json({ success: false, message: "No token provided." });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) {
+                return resp.status(401).json({ success: false, message: "Invalid token" });
+            }
+            let { knowledgeBaseId } = req.body;
+            if (!knowledgeBaseId) {
+                return resp.status(400).json({
+                    success: false,
+                    message: "Missing required fields.",
+                });
+            }
+            const findUserKnowledgeBase = await KnowledgeBase.findOne({
+                where: {
+                    user_uuid: authData.userData.uuid,
+                    id: knowledgeBaseId,
+                }
+            });
+            if(!findUserKnowledgeBase){
+                return resp.status(400).json({
+                    success: false,
+                    message: "Knowledge base not found.",
+                });
+            } else {
+                await KnowledgeBase.destroy({
+                    where: {
+                        user_uuid: authData.userData.uuid,
+                        id: knowledgeBaseId,
+                    }
+                });
+                await KnowledgebaseMeta.destroy({
+                    where: {
+                        knowledgeBase_id: findUserKnowledgeBase.id,
+                    },
+                });
+                const knowledgebaseData = {
+                    id: findUserKnowledgeBase.id,
+                    knowledgeBase_title: findUserKnowledgeBase.knowledgeBase_title,
+                    knowledgeBase_content: findUserKnowledgeBase.knowledgeBase_content,
+                    social_platform: findUserKnowledgeBase.social_platform,
+                    socialDataDetail: findUserKnowledgeBase.socialDataDetail,
+                    status: findUserKnowledgeBase.status,
+                };
+
+                const CountKnowledgeBase = await KnowledgeBase.count({
+                    where: {
+                        user_uuid: authData.userData.uuid
+                    }
+                });
+
+                if(CountKnowledgeBase===0){
+                    await Settings.destroy({
+                        where: {
+                            user_uuid: authData.userData.uuid,
+                            module_name:'Message',
+                        }
+                    });
+                }                
+
+                // knowledgebase N8N
+                    // try {
+                    //     const response = await axios.post(`${process.env.N8N_KNOWLEDGEBASE_WEBHOOK_URL}`, {
+                    //         knowledgebaseData: knowledgebaseData
+                    //     });
+                    //     //console.log("knowledgebase N8N response: ",response.data);
+                    // } catch(err){
+                    //     console.error('error while call knowledgebase N8N :', err.response?.data || err.message);
+                    // }
+                // knowledgebase N8N
+                return resp.status(200).json({
+                    success: true,
+                    message: "Knowledge base delete successfully.",
+                });
+            }
+        });
+    });
+
+// End knowledge base functions
 
 server.listen(serverPort, () => {
     console.log(`Server is running on port ${serverPort}`);

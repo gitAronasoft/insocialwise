@@ -1,11 +1,11 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import Footer from '../../components/Footer';
 import {Link,useNavigate,useLocation} from 'react-router-dom';
 import moment from 'moment';
 import { toast } from 'react-toastify';
-//import axios from "axios";
+import axios from "axios";
 import 'react-multi-carousel/lib/styles.css';
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
@@ -17,6 +17,10 @@ import RecentActivitySkeleton from './components/RecentActivitySkeleton';
 import Carousel from "react-multi-carousel";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import PlatformStepLoader from './components/PlatformStepLoader';
+import queryString from 'query-string';
+import { encryptToken } from './utils/encryption';
+import { decryptToken } from './utils/decryption';
 dayjs.extend(relativeTime);
 
 export default function Dashboard() {
@@ -39,12 +43,27 @@ export default function Dashboard() {
   
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [accountToDisconnect, setAccountToDisconnect] = useState(null);
+  const [showLoaderPopup, setShowLoaderPopup] = useState(false);
+  const [loaderPlatform, setLoaderPlatform] = useState(null);
+  const [loaderSteps, setLoaderSteps] = useState([]);
 
   // modal visibility and (optional) which platform user clicked
   const [selectedPlatform, setSelectedPlatform] = useState(null);
 
   const [recentActivitiesLoading, setRecentActivitiesLoading] = useState(true);
   const [recentActivities, setrecentActivities] = useState([]);
+
+  const currentOrigin = window.location.origin; 
+  const CLIENT_ID = process.env.REACT_APP_LINKEDIN_CLIENT_ID;
+  const REDIRECT_URI = `${currentOrigin}/dashboard`;      
+  const SCOPE = 'w_member_social w_organization_social r_organization_social r_organization_admin r_basicprofile openid email profile rw_organization_admin';
+  const STATE = "linkedin@insocialwise";
+  const [LinkedinLoading, setLinkedinLoading] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [linkedInPages, setLinkedInPages] = useState([]);
+  const [linkedInProfile, setLinkedInProfile] = useState([]);
+  const [selectedPages, setSelectedPages] = useState([]);
+  const linkedinHandledRef = useRef(false);
 
   const responsive = {
     desktop: {
@@ -62,6 +81,71 @@ export default function Dashboard() {
     }
   };
 
+  // LinkedIn Popup styles
+  const styles = {
+    overlay: {
+      position: 'fixed',
+      top: 0, left: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 999,
+    },
+    popup: {
+      background: '#fff',
+      borderRadius: '10px',
+      padding: '24px',
+      width: '500px',
+      maxHeight: '80vh',
+      overflowY: 'auto',
+    },
+    pageList: {
+      marginTop: '16px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+    },
+    pageItem: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '10px 0',
+      borderBottom: '1px solid #eee',
+    },
+    logo: {
+      width: '50px',
+      height: '50px',
+      borderRadius: '6px',
+      objectFit: 'cover',
+    },
+    pageDetails: {
+      flexGrow: 1,
+    },
+    actions: {
+      marginTop: '20px',
+      display: 'flex',
+      justifyContent: 'flex-end',
+      gap: '10px',
+    },
+    cancelBtn: {
+      padding: '8px 16px',
+      backgroundColor: '#ddd',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer',
+    },
+    submitBtn: {
+      padding: '8px 16px',
+      border: 'none',
+      borderRadius: '4px',
+      color: '#fff',
+    },
+  };
+
+  // Start Linkedin Account Connect Function
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
@@ -79,6 +163,532 @@ export default function Dashboard() {
       window.history.replaceState({}, '', cleanUrl);
     }
   }, [location.search]);
+
+  const handleLogin = () => {
+    console.log("redirect;",REDIRECT_URI);
+    const authUrl = queryString.stringifyUrl({
+      url: 'https://www.linkedin.com/oauth/v2/authorization',
+      query: {
+        response_type: 'code',
+        client_id: CLIENT_ID,
+        redirect_uri: REDIRECT_URI,
+        scope: SCOPE,
+        state: STATE,
+      },
+    });
+    window.location.href = authUrl;
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+
+    // 1️⃣ Only handle LinkedIn redirects
+    if (!code || !state?.toLowerCase().includes("linkedin")) return;
+
+    // 2️⃣ Prevent duplicate execution (StrictMode or re-render)
+    if (linkedinHandledRef.current) return;
+    linkedinHandledRef.current = true;
+
+    // 3️⃣ Clean URL before async work (so router won't retrigger effect)
+    window.history.replaceState({}, "", "/dashboard");
+
+    const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
+    // 4️⃣ Do the work
+    (async () => {
+      try {
+        setLinkedinLoading(true);
+        setFullScreenLoader(true);
+        const { token: encryptedToken, iv } = encryptToken(code);
+        const res = await axios.post(
+          `${BACKEND_URL}/api/auth/linkedin`,
+          { token: encryptedToken, iv, REDIRECT_URI },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            },
+          }
+        );
+
+        const token = res.data.token;
+        localStorage.setItem("accessToken", JSON.stringify(token));
+
+        const userProfile = await fetchUserProfile(token);
+        if (userProfile) {
+          const linkedInBusinessPage = await fetchUserLinkedinPage(token);
+          if (linkedInBusinessPage) {
+            popupforlinkedinPage(userProfile.profile, linkedInBusinessPage.organizations);
+          }
+        }
+      } catch (err) {
+        console.error("LinkedIn auth flow failed:", err);        
+        setFullScreenLoader(false);
+        toast.error(`LinkedIn connect failed.`, {
+          position: 'top-right',
+          autoClose: 5000,
+          autoClose: true,
+          hideProgressBar: false,
+          closeOnClick: true,
+          theme: "colored",
+        });
+      } finally {
+        setLinkedinLoading(false);
+        setFullScreenLoader(false);
+      }
+    })();
+  }, [location.search]);
+
+  const fetchUserProfile = async (token) => {
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+    try {
+      const res = await axios.post(`${BACKEND_URL}/api/auth/linkedin/profile`,{ token },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('authToken'),
+          }
+        }
+      );
+      
+      return res.data;
+    } catch (err) {
+      setLinkedinLoading(false);      
+      toast.error(`LinkedIn Profile fetch failed. Please try again later.`, {
+        position: 'top-right',
+        autoClose: 5000,
+        autoClose: true,
+        hideProgressBar: false,
+        closeOnClick: true,
+        theme: "colored",
+      });
+      console.error('Profile fetch failed:', err.response?.data || err.message);
+      return null;
+    }
+  };
+  
+  const fetchUserLinkedinPage = async (token) => {
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+    try {
+      const res = await axios.post(`${BACKEND_URL}/api/auth/linkedin/pages`,{ token },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('authToken'),
+          }
+        }
+      );
+
+      return res.data;
+    } catch (err) {
+      setLinkedinLoading(false);
+      toast.error(`LinkedIn Business Pages fetch failed. Please try again later.`, {
+        position: 'top-right',
+        autoClose: 5000,
+        autoClose: true,
+        hideProgressBar: false,
+        closeOnClick: true,
+        theme: "colored",
+      });
+      console.error('Business Page fetch failed:', err.response?.data || err.message);
+      return null;
+    }
+  };
+
+  const popupforlinkedinPage = (profile,pages) => {
+    setFullScreenLoader(false);
+    setLinkedInProfile(profile);
+    setLinkedInPages(pages);
+    setLinkedinLoading(false);
+    setShowPopup(true);
+  };
+
+  const handleCheckboxChange = (id) => {
+    setSelectedPages((prev) =>
+      prev.includes(id) ? prev.filter((pid) => pid !== id) : [...prev, id]
+    );
+  };
+
+  const handleSubmit = async() => {
+    setFullScreenLoader(true);
+    setShowPopup(false);
+    setLinkedinLoading(false);
+    const access_token = localStorage.getItem('accessToken');
+    const selectedData = linkedInPages.filter((page) => selectedPages.includes(page.id));
+    // console.log('Selected Pages to Save:', selectedData);
+    await saveLinkedinProfileData(linkedInProfile, selectedData, access_token);
+    setFullScreenLoader(false);
+    setShowLoaderPopup(true);
+    setLoaderPlatform("LinkedIn");
+    setLoaderSteps([
+      "Requesting Page Access",
+      "Fetching Page Analytics Data",
+      "Fetching Posts Data",
+      "Syncing Comments Data",
+      "Syncing Account Data",
+      "Saving Demogrphics",
+    ]);
+  };
+
+  const saveLinkedinProfileData = async (profileData, pageData, accessToken) => { 
+    // setAppLoading(true);
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+    const storedToken = localStorage.getItem('authToken');
+    const page_access_token = JSON.parse(accessToken);
+    const userData = profileData;
+    const social_user_platform = 'linkedin';
+    try {
+      const submissionResponse = await fetch(`${BACKEND_URL}/api/linkedin/save-social-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + storedToken
+        },
+        body: JSON.stringify({ 
+          data: userData, 
+          accessToken: page_access_token,
+          social_user_platform: social_user_platform 
+        }),
+      });
+
+      const response = await submissionResponse.json();
+      if(response.createAccount===false){
+        toast.error(`This account is already linked to our platform.`, {
+          position: 'top-right',
+          autoClose: 5000,
+          autoClose: true,
+          hideProgressBar: false,
+          closeOnClick: true,
+          theme: "colored",
+        });
+      }else if(response.createAccount===true){
+        await saveLinkedinPages(pageData, page_access_token, userData.sub);                    
+      }else if(response.createAccountError===false){
+        toast.error(`Server technical problem, try agian.`, {
+          position: 'top-right',
+          autoClose: 5000,
+          autoClose: true,
+          hideProgressBar: false,
+          closeOnClick: true,
+          theme: "colored",
+        }); 
+      }else {
+        // setAppLoading(false);
+        toast.error(`Server technical problem, try agian.`, {
+          position: 'top-right',
+          autoClose: 5000,
+          autoClose: true,
+          hideProgressBar: false,
+          closeOnClick: true,
+          theme: "colored",
+        });                
+      }
+    } catch (error) {
+      // setAppLoading(false);
+      console.error('Token Extension Error:', error);
+    }
+  };
+
+  const saveLinkedinPages = async (pagesListData, page_access_token, user_social_id) => { 
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+    const storedToken = localStorage.getItem('authToken'); 
+    const data = pagesListData;
+    const page_platform = 'linkedin';
+    try {    
+        const postResponse = await fetch(`${BACKEND_URL}/api/linkedin/save-pages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + storedToken
+            },
+            body: JSON.stringify({pagesData:data, social_id:user_social_id, token:page_access_token, page_platform:page_platform}),
+        });
+
+        if (!postResponse.ok) {
+            throw new Error(`HTTP error! Status: ${postResponse.status}`);
+        }
+        const postData = await postResponse.json();
+        await fetchLinkedinAnalytics(pagesListData, page_access_token, user_social_id);
+        localStorage.removeItem('userinfo');
+        localStorage.setItem('userinfo', JSON.stringify(postData.userInfo));          
+        const rawUserInfo = localStorage.getItem('userinfo');
+        const userInfoData = JSON.parse(rawUserInfo);
+        if(userInfoData.socialData && Array.isArray(userInfoData.socialData)) {
+          setIsConnectedAccountInfo(userInfoData.socialData);           
+        }
+        // setAppLoading(false); 
+        // setShowConnectModal(false);                
+    } catch (error) {
+        // setAppLoading(false);
+        console.error('Error processing page:', error);
+    }
+  };
+
+  const fetchLinkedinAnalytics = async (pagesListData, page_access_token, user_social_id) => { 
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+    const storedToken = localStorage.getItem('authToken'); 
+    const data = pagesListData;
+    try {    
+      const getAnalytics = await fetch(`${BACKEND_URL}/api/linkedin/fetch-page-analytics`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + storedToken
+        },
+        body: JSON.stringify({ pagesData:data, token:page_access_token}),
+      });
+
+      if (!getAnalytics.ok) {
+        throw new Error(`HTTP error! Status: ${getAnalytics.status}`);
+      }
+      const analyticsData = await getAnalytics.json();
+      saveLinkedinAnalytics(analyticsData, pagesListData, page_access_token, user_social_id);           
+    } catch (error) {
+      console.error('Error processing page:', error);
+    }
+  };
+
+  const saveLinkedinAnalytics = async (analyticsData, pagesListData, page_access_token, user_social_id) => { 
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+    const storedToken = localStorage.getItem('authToken');
+    const platform = 'linkedin';
+
+    analyticsData.analytics.map(async (item) => {
+      const analyticData = item;
+      console.log("Analytic per page:",analyticData);
+      // page_daily_follows
+      try {
+          const page_daily_follows = await fetch(`${BACKEND_URL}/api/linkedin/create_analytics`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + storedToken
+              },
+              body: JSON.stringify({ 
+                      analyticsData : analyticData.followerUpdates.data, 
+                      platform : platform, 
+                      analyticType : "page_daily_follows",
+                      orgId : analyticData.orgId
+                  }),
+          });
+
+          if (!page_daily_follows.ok) {
+              throw new Error(`HTTP error! Status: ${page_daily_follows.status}`);
+          }
+          const message = await page_daily_follows.json();
+          // console.log("page_daily_follows: ",message);             
+      } catch (error) {
+        console.error('Error processing page followers:', error);
+      }
+
+      // page_impressions
+      try {
+          const page_impressions = await fetch(`${BACKEND_URL}/api/linkedin/create_analytics`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + storedToken
+              },
+              body: JSON.stringify({ 
+                      analyticsData : analyticData.shareStatisticsUpdates.data, 
+                      platform : platform, 
+                      analyticType : "page_impressions",
+                      orgId : analyticData.orgId
+                  }),
+          });
+
+          if (!page_impressions.ok) {
+              throw new Error(`HTTP error! Status: ${page_impressions.status}`);
+          }
+          const message = await page_impressions.json();
+          // console.log("page_impressions: ",message);             
+      } catch (error) {
+        console.error('Error processing page impressions :', error);
+      }
+
+      // page_impressions_unique
+      try {
+          const page_impressions_unique = await fetch(`${BACKEND_URL}/api/linkedin/create_analytics`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + storedToken
+              },
+              body: JSON.stringify({ 
+                      analyticsData : analyticData.shareStatisticsUpdates.data, 
+                      platform : platform, 
+                      analyticType : "page_impressions_unique",
+                      orgId : analyticData.orgId
+                  }),
+          });
+
+          if (!page_impressions_unique.ok) {
+              throw new Error(`HTTP error! Status: ${page_impressions_unique.status}`);
+          }
+          const message = await page_impressions_unique.json();
+          // console.log("page_impressions_unique: ",message);             
+      } catch (error) {
+        console.error('Error processing page unique impressions :', error);
+      }
+
+      // page_views_total
+      try {
+          const pageViews = analyticData.pageViewUpdates.data;
+          let filteredPageViews = [];
+          pageViews.forEach((analyticItem) => {
+              filteredPageViews.push({'pageStats':analyticItem.totalPageStatistics.views.allPageViews, 'timeRange':analyticItem.timeRange});
+          });
+          const page_views_total = await fetch(`${BACKEND_URL}/api/linkedin/create_analytics`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + storedToken
+              },
+              body: JSON.stringify({ 
+                      analyticsData : filteredPageViews, 
+                      platform : platform, 
+                      analyticType : "page_views_total",
+                      orgId : analyticData.orgId
+                  }),
+          });
+
+          if (!page_views_total.ok) {
+              throw new Error(`HTTP error! Status: ${page_views_total.status}`);
+          }
+          const message = await page_views_total.json();
+          // console.log("page_views_total: ",message);             
+      } catch (error) {
+        console.error('Error processing page views :', error);
+      }
+
+      // page_post_engagements
+      try {
+          const page_post_engagements = await fetch(`${BACKEND_URL}/api/linkedin/create_analytics`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + storedToken
+              },
+              body: JSON.stringify({ 
+                      analyticsData : analyticData.shareStatisticsUpdates.data, 
+                      platform : platform, 
+                      analyticType : "page_post_engagements",
+                      orgId : analyticData.orgId
+                  }),
+          });
+
+          if (!page_post_engagements.ok) {
+              throw new Error(`HTTP error! Status: ${page_post_engagements.status}`);
+          }
+          const message = await page_post_engagements.json();
+          // console.log("page_post_engagements: ",message);             
+      } catch (error) {
+        console.error('Error processing page engaged:', error);
+      }
+
+      // page_likes_total
+      try {
+          const page_likes_total = await fetch(`${BACKEND_URL}/api/linkedin/create_analytics`, {
+              method: 'POST',
+              headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + storedToken
+              },
+              body: JSON.stringify({ 
+                      analyticsData : analyticData.shareStatisticsUpdates.data, 
+                      platform : platform, 
+                      analyticType : "page_actions_post_reactions_like_total",
+                      orgId : analyticData.orgId
+                  }),
+          });
+
+          if (!page_likes_total.ok) {
+              throw new Error(`HTTP error! Status: ${page_likes_total.status}`);
+          }
+          const message = await page_likes_total.json();
+          // console.log("page_likes_total: ",message);             
+      } catch (error) {
+        console.error('Error processing page likes:', error);
+      }
+    });
+
+    // trigger to post save of every page that users connects
+    saveLinkedinPosts(pagesListData, page_access_token, user_social_id);
+  };
+
+  const saveLinkedinPosts = async ( pagesListData, page_access_token, user_social_id ) => {
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+    const storedToken = localStorage.getItem('authToken');
+    const data = pagesListData;
+    try {
+      const savePosts = await fetch(`${BACKEND_URL}/api/linkedin/save-posts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + storedToken
+        },
+        body: JSON.stringify({ pagesData:data, token:page_access_token}),
+      });
+
+      if (!savePosts.ok) {
+        throw new Error(`HTTP error! Status: ${savePosts.status}`);
+      }
+      const savePostsResponse = await savePosts.json();
+      saveLinkedinPostsComments(pagesListData, page_access_token, user_social_id);             
+    } catch (error) {
+      console.error('Error saving posts:', error);
+    }
+  }
+
+  const saveLinkedinPostsComments = async ( pagesListData, page_access_token, user_social_id ) => {
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+    const storedToken = localStorage.getItem('authToken');
+    const data = pagesListData;
+    try {    
+      const savePostsComments = await fetch(`${BACKEND_URL}/api/linkedin/save-posts-comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + storedToken
+        },
+        body: JSON.stringify({ pagesData:data, token:page_access_token}),
+      });
+
+      if (!savePostsComments.ok) {
+        throw new Error(`HTTP error! Status: ${savePostsComments.status}`);
+      }
+      const savePostsCommentsResponse = await savePostsComments.json();
+      saveLinkedinPageDemographics(pagesListData, page_access_token, user_social_id);
+    } catch (error) {
+      console.error('Error saving posts comments:', error);
+    }
+  }
+
+  const saveLinkedinPageDemographics = async ( pagesListData, page_access_token, user_social_id ) => {
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+    const storedToken = localStorage.getItem('authToken');
+    const data = pagesListData;
+    try {    
+      const savePostsDemogrphics = await fetch(`${BACKEND_URL}/api/linkedin/save-demographics`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + storedToken
+        },
+        body: JSON.stringify({ pagesData:data, token:page_access_token, social_userid: user_social_id}),
+      });
+
+      if (!savePostsDemogrphics.ok) {
+        throw new Error(`HTTP error! Status: ${savePostsDemogrphics.status}`);
+      }
+      const savePostsDemographicsResponse = await savePostsDemogrphics.json();
+    } catch (error) {
+      console.error('Error saving posts comments:', error);
+    }
+  }
+// Ends Linkedin Account Connect Function
 
   useEffect(() => {
     const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`; 
@@ -367,12 +977,14 @@ export default function Dashboard() {
             setIsConnectedAccountInfo(userInfoData.socialData);
             fetchPlatforms();
           }
-          toast.success('Account disconnected successfully.', {
-            position: 'top-center',
+          toast.success(`Account disconnected successfully.`, {
+            position: 'top-right',
             autoClose: 5000,
+            autoClose: true,
             hideProgressBar: false,
             closeOnClick: true,
-          });
+            theme: "colored",
+          }); 
         }
         setLoading(false);                     
       })
@@ -550,8 +1162,6 @@ export default function Dashboard() {
   };
 
   const handleConnectSuccess = () => {
-    // optional: re-fetch anything you need here after modal finishes its workflow
-    // e.g., refetchConnectedAccounts();
     fetchPlatforms();
   };
 
@@ -579,6 +1189,92 @@ export default function Dashboard() {
     navigate("/edit-post", { state: { formId } });
   };
 
+  const handlePlatformConnect = async (platform, token) => {
+    // Called by ConnectedPlatforms when FB returned a token OR user picked LinkedIn/Instagram
+    if (!platform) return;
+
+    const stepsMap = {
+      Facebook: [
+        "Pages and accounts",
+        "Posts and content",
+        "Comments and interactions",
+        "Likes and engagement metrics",
+      ],
+      LinkedIn: [
+        "Organizations and admins",
+        "Posts and articles",
+        "Engagement and analytics",
+        "Profile data sync",
+      ],
+    };
+
+    if (!token) {
+      if (platform.toLowerCase() === "linkedin") {
+        // const connectedPlatformsRef = connectedPlatformsRef.current;
+        // connectedPlatformsRef?.handleLogin();
+        handleLogin();
+      } else {
+        console.log("Platform selected with no immediate token:", platform);
+      }
+      return;
+    }
+
+    // If we have a token (Facebook), validate with backend
+    if(token){
+      setLoaderPlatform(platform);
+      setLoaderSteps(stepsMap[platform] || []);
+      setShowLoaderPopup(true);
+
+      try {
+        setShowConnectModal(true); // optional: show modal while verifying
+        const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+        const authToken = localStorage.getItem('authToken');
+
+        const res = await fetch(`${BACKEND_URL}/api/account-connection`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ data: token, platform }),
+        });
+
+        const data = await res.json();
+        if (!data.success) {          
+          setShowLoaderPopup(false);
+          toast.error(data.message || `Failed to connect ${platform}.`, {
+            position: 'top-right',
+            autoClose: 5000,
+            autoClose: true,
+            hideProgressBar: false,
+            closeOnClick: true,
+            theme: "colored",
+          }); 
+          return;
+        }
+
+        localStorage.setItem('userinfo', JSON.stringify(data.userInfo));
+        const userInfoData = JSON.parse(localStorage.getItem('userinfo') || "{}");
+        setIsConnectedAccountInfo(userInfoData.socialData || []);
+        // toast.success(`${platform} connected successfully!`);
+        setSelectedPlatform(platform);
+        fetchPlatforms();
+        setShowConnectModal(false);
+      } catch (err) {
+        console.error("Platform connect error:", err);       
+        setShowConnectModal(false);
+        toast.error(`Connection failed. Please try again.`, {
+          position: 'top-right',
+          autoClose: 5000,
+          autoClose: true,
+          hideProgressBar: false,
+          closeOnClick: true,
+          theme: "colored",
+        }); 
+      }
+    }
+  };
+
   return (
     <div className="page-wrapper compact-wrapper" >
         <Header/>
@@ -591,7 +1287,7 @@ export default function Dashboard() {
                     <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }} role="status">
                       <span className="sr-only">Loading...</span>
                     </div>
-                    <h5 className="mt-3">Creating Draft Post...</h5>
+                    <h5 className="mt-3">Connecting Account...</h5>
                   </div>
                 </div>
               )}
@@ -684,7 +1380,7 @@ export default function Dashboard() {
               </div>
 
               <div className="row g-3">
-                <div className="col-xl-8 col-md-8 col-sm-12 d-flex align-items-stretch">
+                <div className="col-12 col-sm-12 col-md-12  col-xl-8 col-xxl-8  d-flex align-items-stretch">
                   <div className="card w-100 bg-white">
                     <div className="card-body">
                       <div className="d-flex align-items-center justify-content-between gap-2">
@@ -694,7 +1390,7 @@ export default function Dashboard() {
                         </div>
                         <div>
                           <div className="dropdown my-3 remove-dropdown-ican">
-                            <ConnectedPlatforms onPlatformSelect={openConnectModalFor} />
+                            <ConnectedPlatforms onPlatformSelect={handlePlatformConnect} />
                           </div>
                         </div>
                       </div>
@@ -707,9 +1403,9 @@ export default function Dashboard() {
                         ) : connectedAccountInfo.filter(account => account.status === "Connected").slice(0, 3).length > 0 ? (
                           connectedAccountInfo.filter(account => account.status === "Connected").slice(0, 3).map((account) => (
                             <>
-                              <div className='card addPlatform-card'>
-                                <div className="d-flex align-items-center justify-content-between p-3">
-                                  <div className="d-flex align-items-center"> 
+                              <div className='card addPlatform-card '>
+                                <div className="d-flex align-items-center justify-content-between mobile-responsive">
+                                  <div className="d-flex align-items-center "> 
                                     <div className="position-relative">
                                       <img className="img-fluid rounded-circle border" src={`${account.img_url}`} alt="PageImage" style={{width:'50px',height:'50px'}} />
                                       <div className={`${account.social_user_platform}-profile-img`} 
@@ -732,7 +1428,7 @@ export default function Dashboard() {
                                       )}
                                     </div>
                                   </div>
-                                  <div className="d-flex align-items-center gap-3"> 
+                                  <div className="d-flex align-items-center text-end justify-content-between gap-3 w-md-auto profile-analytics "> 
                                     <div className='d-flex align-items-center justify-content-between gap-3'>
                                       {analyticsLoading? (
                                         <>
@@ -765,18 +1461,31 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  <AccountNotConnectedComponent
+                  {/* <AccountNotConnectedComponent
                     show={showConnectModal}
                     onHide={handleConnectHide}
                     onSuccess={handleConnectSuccess}
                     setIsConnectedAccountInfo={setIsConnectedAccountInfo}
                     pageURL={location.pathname}
                     selectedPlatform={selectedPlatform}
-                  />
+                  /> */}
+
+                  {showLoaderPopup && (
+                    <PlatformStepLoader
+                      platform={loaderPlatform}
+                      steps={loaderSteps}
+                      onComplete={() => {
+                        setShowLoaderPopup(false);
+                        setLoaderPlatform(null);
+                        setLoaderSteps([]);
+                        fetchPlatforms(); // refresh connected platforms list
+                      }}
+                    />
+                  )}
 
                 </div>
 
-                <div className='col-xl-4 col-md-4 col-sm-12'> 
+                <div className='col-12 col-sm-12 col-md-12 col-xl-4 col-xxl-4'> 
                   <div className='card w-100 card-bg'>
                     <div className='card-body'> 
                       <h5> Recent Activity </h5> 
@@ -835,7 +1544,7 @@ export default function Dashboard() {
                                   Create a post to see your activity here.
                                 </h6>                                
                                 <Link to="/create-post" className='btn btn-hover-effect btn-primary d-flex align-items-center justify-content-center'>
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus h-5 w-5"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-plus pe-2"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
                                   <span>Create post</span>
                                 </Link>
                               </div>
@@ -863,14 +1572,14 @@ export default function Dashboard() {
               </div>     
 
               <div className="row">
-                <div className="col-12 col-md-12"> 
+                <div className="col-12 col-sm-12 col-md-12"> 
                   <div className="card card-body">
-                    <div className="d-flex align-items-center justify-content-between gap-2">
-                      <div>
+                    {/* <div className="d-flex align-items-center justify-content-between gap-2 w-100">
+                      <div className="w-50">
                         <h5 className="mb-3"><i className="fa fa-calendar"></i> Scheduled Posts </h5>
                         <span>View and manage your upcoming posts for the next 7 days</span>
                       </div>
-                      <div className="d-flex align-items-center justify-content-between gap-2">
+                      <div className="d-flex align-items-center justify-content-between gap-2 w-50">
                         <Link to="/post-calendar" className="custom-light-btn">
                           <small><i className="fa-solid fa-eye me-2"></i>View scheduled</small>
                         </Link>
@@ -878,7 +1587,38 @@ export default function Dashboard() {
                           <small><i className="fa-solid fa-plus me-2"></i>Scheduled Post</small>
                         </Link>
                       </div>
-                    </div> 
+                    </div>  */}
+
+
+                    <div className="row align-items-center card-header border-0">
+                      {/* Left Section */}
+                      <div className="col-12 col-md-6 mb-3 mb-md-0 p-0 gap-0">
+                        <div>
+                          <h5 className="mb-2">
+                            <i className="fa fa-calendar me-2"></i> Scheduled Posts
+                          </h5>
+                          <span className="text-muted">
+                            View and manage your upcoming posts for the next 7 days
+                          </span>
+                        </div>
+                      </div>
+                      {/* Right Section */}
+                      <div className="col-12 col-md-6 p-0 gap-0 ">
+                        <div className="d-flex justify-content-md-end justify-content-end gap-2">
+                          <Link to="/post-calendar" className="custom-light-btn btn px-3 py-2" >
+                            <small>
+                              <i className="fa-solid fa-eye me-2"></i> View Scheduled
+                            </small>
+                          </Link>
+
+                          <Link  to="/create-post" className="btn btn-primary px-3 py-2" >
+                            <small>
+                              <i className="fa-solid fa-plus me-2"></i> Scheduled Post
+                            </small>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
 
                     <div className="scheduled-posts-week">
                       <div className="week-row">
@@ -964,19 +1704,19 @@ export default function Dashboard() {
 
                     <div className='d-flex align-items-center justify-content-between draft-footer'> 
                       <div className='d-flex align-items-center gap-3'> 
-                        <div className='d-flex align-items-center flex-column '> 
+                        <div className='d-flex align-items-center flex-column text-center'> 
                           <h2 style={{ color: getPlatformTextColor('instagram') }}> { scheduledPosts.length ?? 0 } </h2> 
                           <p> Total Posts </p>
                         </div>
                         {Array.from(new Set(scheduledPosts?.map(post => post.platform))).map(platform => (
-                          <div key={platform} className='d-flex align-items-center flex-column'> 
+                          <div key={platform} className='d-flex align-items-center flex-column text-center'> 
                             <h2 style={{ color: getPlatformTextColor(platform) }}>
                               {scheduledPosts.filter(post => post.platform === platform).length}
                             </h2> 
                             <p>{platform.charAt(0).toUpperCase() + platform.slice(1)}</p>
                           </div>
                         ))}
-                        <div className='d-flex align-items-center flex-column'> 
+                        <div className='d-flex align-items-center flex-column text-center'> 
                           <h2 style={{color:"#159711ff"}}>
                             {scheduledPosts?.filter(post => post.mediaType === "image").length}
                           </h2> 
@@ -997,8 +1737,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="row">
-                <div className="col-12 col-md-8 align-items-stretch">
+              <div className="row trending-topics">
+                <div className="col-12 col-md-12 col-xl-12 col-xxl-8 align-items-stretch">
                   <div className="card w-100 mb-0"> 
 
                     <div className="card-body pb-0">
@@ -1050,7 +1790,7 @@ export default function Dashboard() {
                                   {/* <div className='software-development card'> */}
                                   <div className="card addPlatform-card">
                                     <div className="card shadow-sm rounded-4 border-0 p-3 m-0">
-                                      <div className="d-flex justify-content-between align-items-start">
+                                      <div className="d-flex justify-content-between align-items-start mobile-responsive ">
                                         <div className="flex-grow-1">
                                           <div className="d-flex gap-2">
                                             <h6 className="card-title fw-semibold text-dark mb-1">{topic.title}</h6>
@@ -1077,7 +1817,7 @@ export default function Dashboard() {
                                       </div>
                                       
                                       <div className="d-flex justify-content-between align-items-center">
-                                        <div className="text-muted small">
+                                        <div className="text-muted small my-2">
                                           Engagement Rate: <span className="fw-semibold text-dark">50%</span>
                                         </div>
                                       </div>
@@ -1094,19 +1834,19 @@ export default function Dashboard() {
                     <div className="card-body">
                       <div className='d-flex align-items-center justify-content-between draft-footer'> 
                         <div className='d-flex align-items-center gap-3'> 
-                          <div className='d-flex align-items-center flex-column '> 
+                          <div className='d-flex align-items-center flex-column text-center'> 
                             <h2 style={{ color: getPlatformTextColor('tiktok') }}> { scheduledPosts.length ?? 0 } </h2> 
                             <p> Total Topics </p>
                           </div>
-                          <div className='d-flex align-items-center flex-column '> 
+                          <div className='d-flex align-items-center flex-column text-center'> 
                             <h2 style={{ color: getPlatformTextColor('instagram') }}> 5 </h2> 
                             <p> Trending </p>
                           </div>
-                          <div className='d-flex align-items-center flex-column '> 
+                          <div className='d-flex align-items-center flex-column text-center'> 
                             <h2 style={{ color: getPlatformTextColor('youtube') }}> 2 </h2> 
                             <p> Hot Topics </p>
                           </div>
-                          <div className='d-flex align-items-center flex-column'> 
+                          <div className='d-flex align-items-center flex-column text-center'> 
                             <h2 style={{color:"#159711ff"}}>
                               58%
                             </h2> 
@@ -1126,7 +1866,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="col-12 col-sm-4 col-md-4 d-flex align-items-stretch">
+                <div className="col-12 col-sm-12 col-md-12 col-xl-12 col-xxl-4 d-flex align-items-stretch custom-margin-top">
                   {/* <div className="card">
                     <div className="card-body d-flex align-items-center justify-content-center flex-column text-center" style={{height:325}}>
                       <div className="align-middle">
@@ -1142,7 +1882,7 @@ export default function Dashboard() {
                       </div>                   
                     </div>
                   </div> */}
-                  <div className="card shadow-sm h-100 border-0 rounded-3">
+                  <div className="card shadow-sm h-100 border-0 rounded-3 w-100">
                     <div className="card-body p-4">
                       <div className="d-flex justify-content-between align-items-center gap-2 mb-3">
                         <div className="w-100">
@@ -1172,68 +1912,69 @@ export default function Dashboard() {
                         </div> */}
                       </div>
 
-                      {/* Circular Score */}
-                      <div className="d-flex justify-content-center my-4">
-                        <div className="position-relative" style={{width: "150px", height: "150px"}}>
-                          <svg className="w-100 h-100 position-absolute top-0 start-0" viewBox="0 0 100 100" style={{transform: "rotate(-90deg)"}}>
-                            <circle cx="50" cy="50" r="40" stroke="#e9ecef" stroke-width="8" fill="none"></circle>
-                            <circle cx="50" cy="50" r="40" stroke="#32cd32" stroke-width="8" fill="none" stroke-dasharray="213.35 251"></circle>
-                          </svg>
-                          <div className="position-absolute top-50 start-50 translate-middle text-center">
-                            <div className="h2 fw-bold text-dark">85</div>
-                            <div className="small text-muted">Score</div>
+                      <div className='social-performance-responsive'>   
+                        {/* Circular Score */}
+                        <div className="d-flex justify-content-center my-4">
+                          <div className="position-relative" style={{width: "150px", height: "150px"}}>
+                            <svg className="w-100 h-100 position-absolute top-0 start-0" viewBox="0 0 100 100" style={{transform: "rotate(-90deg)"}}>
+                              <circle cx="50" cy="50" r="40" stroke="#e9ecef" stroke-width="8" fill="none"></circle>
+                              <circle cx="50" cy="50" r="40" stroke="#32cd32" stroke-width="8" fill="none" stroke-dasharray="213.35 251"></circle>
+                            </svg>
+                            <div className="position-absolute top-50 start-50 translate-middle text-center">
+                              <div className="h2 fw-bold text-dark">85</div>
+                              <div className="small text-muted">Score</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Stats Grid */}
-                      <div className="row g-3 mb-4">
-                        <div className="col-6">
-                          <div className="p-3 rounded d-flex align-items-center shadow ">
-                            <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #3b82f6, #8b5cf6)" }}>
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users h-5 w-5 text-white"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        {/* Stats Grid */}
+                        <div className="row g-3 mb-4">
+                          <div className="col-12 col-sm-6">
+                            <div className="p-3 rounded d-flex align-items-center shadow ">
+                              <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #3b82f6, #8b5cf6)" }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users h-5 w-5 text-white"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                              </div>
+                              <div>
+                                <div className="fw-semibold">+12.5%</div>
+                                <small className="text-muted">Follower Growth</small>
+                              </div>
                             </div>
-                            <div>
-                              <div className="fw-semibold">+12.5%</div>
-                              <small className="text-muted">Follower Growth</small>
+                          </div>
+                          <div className="col-12 col-sm-6">
+                            <div className="p-3 rounded d-flex align-items-center shadow ">
+                              <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #22c55e, #14b8a6)" }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-heart h-5 w-5 text-white"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
+                              </div>
+                              <div>
+                                <div className="fw-semibold">8.7%</div>
+                                <small className="text-muted">Engagement Rate</small>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="col-12 col-sm-6">
+                            <div className="p-3 rounded d-flex align-items-center shadow ">
+                              <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #a855f7, #ec4899)" }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-share2 h-5 w-5 text-white"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"></line><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"></line></svg>
+                              </div>
+                              <div>
+                                <div className="fw-semibold">234</div>
+                                <small className="text-muted">Shares This Week</small>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="col-12 col-sm-6">
+                            <div className="p-3 rounded d-flex align-items-center shadow ">
+                              <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #f97316, #ef4444)" }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye h-5 w-5 text-white"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                              </div>
+                              <div>
+                                <div className="fw-semibold">45.2K</div>
+                                <small className="text-muted">Total Social Reach</small>
+                              </div>
                             </div>
                           </div>
                         </div>
-                        <div className="col-6">
-                          <div className="p-3 rounded d-flex align-items-center shadow ">
-                            <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #22c55e, #14b8a6)" }}>
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-heart h-5 w-5 text-white"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
-                            </div>
-                            <div>
-                              <div className="fw-semibold">8.7%</div>
-                              <small className="text-muted">Engagement Rate</small>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="col-6">
-                          <div className="p-3 rounded d-flex align-items-center shadow ">
-                            <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #a855f7, #ec4899)" }}>
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-share2 h-5 w-5 text-white"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"></line><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"></line></svg>
-                            </div>
-                            <div>
-                              <div className="fw-semibold">234</div>
-                              <small className="text-muted">Shares This Week</small>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="col-6">
-                          <div className="p-3 rounded d-flex align-items-center shadow ">
-                            <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #f97316, #ef4444)" }}>
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye h-5 w-5 text-white"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                            </div>
-                            <div>
-                              <div className="fw-semibold">45.2K</div>
-                              <small className="text-muted">Total Social Reach</small>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
+                       </div>     
                       {/* Insights */}
                       <h6 className="fw-semibold mb-3">Performance Insights</h6>
                       <div className="d-flex align-items-center rounded py-2 mb-3" 
@@ -1296,7 +2037,7 @@ export default function Dashboard() {
                           <div className='d-flex gap-2'>
                             <div style={{color: "#9333EA" }}> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-pen-line h-6 w-6 mr-2 text-purple-500"><path d="M12 20h9"></path><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path></svg>   </div>
                             <div>
-                              <h5> Draft Posts </h5> 
+                              <h5> Draft Posts</h5> 
                             </div>
                           </div>
                           <div className='mt-1'> <p> Continue working on your saved draft content </p> </div>
@@ -1314,11 +2055,11 @@ export default function Dashboard() {
                         ) : draftPosts.length > 0 ? (
                           draftPosts.slice(0, 10).map(post => (
                             <div className='custom-draft-post card mt-2'> 
-                              <div className="d-flex justify-content-between gap-2 p-2">
-                                <div className="d-flex"> 
-                                  <div className="me-3">
+                              <div className="d-flex justify-content-between gap-2 mobile-responsive">
+                                <div className="d-flex mobile-responsive"> 
+                                  <div className="me-3 col-12-m-none">
                                     <div>
-                                      <div className="custom-draft-img">
+                                      <div className="custom-draft-img w-100">
                                         <span>Draft</span>
                                         {/* With Images Crousel */}
                                         {/* {(() => {
@@ -1385,10 +2126,10 @@ export default function Dashboard() {
                                             // console.log("Posts Data:", post);
                                             return (
                                               <HoverPostPreviewMultiple key={firstPost.postID} post={post} platform={firstPost.platform?.toLowerCase()} >
-                                                <div style={{ width: "90px", height: "90px", borderRadius: "8px", overflow: "hidden", position: "relative" }} >
+                                                <div className="mobile-devise-img" >
                                                   {firstMedia.type === "image" ? (
-                                                    <img src={`${BACKEND_URL}${firstMedia.path}`} alt="draft-media"
-                                                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                                    <img src={`${BACKEND_URL}${firstMedia.path}`} alt="draft-media" className="img-fluid"
+                                                      style={{ objectFit: "cover", display: "block", width: "90px", height: "90px", borderRadius: "8px", overflow: "hidden", position: "relative" }}
                                                       onError={(e) => {
                                                         e.target.src = `${process.env.PUBLIC_URL}/assets/images/placeholder_img.jpg`;
                                                       }}
@@ -1499,11 +2240,11 @@ export default function Dashboard() {
                       
                       <div className='d-flex align-items-center justify-content-between draft-footer'> 
                         <div className='d-flex align-items-center gap-3'> 
-                          <div className='d-flex align-items-center flex-column '> 
+                          <div className='d-flex align-items-center flex-column text-center'> 
                             <h2> { draftPosts.length ?? 0 } </h2> 
                             <p> Total Drafts </p>
                           </div>
-                          <div className='d-flex align-items-center flex-column '> 
+                          <div className='d-flex align-items-center flex-column text-center'> 
                             <h2 style={{color:"#9333EA"}}>
                               {(() => {
                                 const posts = draftPosts.slice(0, 10);
@@ -1519,7 +2260,7 @@ export default function Dashboard() {
                             </h2> 
                             <p> Avg Words </p>
                           </div>
-                          <div className='d-flex align-items-center flex-column '> 
+                          <div className='d-flex align-items-center flex-column text-center'> 
                             <h2 style={{color:"#DB2777"}}>
                               {(() => {
                                 const posts = draftPosts.slice(0, 10);
@@ -1578,6 +2319,35 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+
+              {/* Popup for LinkedIn Pages */}
+              {showPopup && (
+                <div style={styles.overlay}>
+                  <div style={styles.popup}>
+                  <h2>Select Your LinkedIn Pages</h2>
+                  <div style={styles.pageList}>
+                    {Array.isArray(linkedInPages) && linkedInPages.map((page,key) => (
+                      <div key={page.id} style={styles.pageItem}>
+                        <img src={page.logoV2?.['original~']?.elements?.[0]?.identifiers?.[0]?.identifier || 'https://via.placeholder.com/60'}
+                          alt={page.localizedName} style={styles.logo} />
+                        <div style={styles.pageDetails}>
+                          <strong>{page.localizedName}</strong>
+                          {/* <p style={{ margin: 0 }}>{page.localizedWebsite}</p> */}
+                        </div>
+                        <input type="checkbox" checked={selectedPages.includes(page.id)} onChange={() => handleCheckboxChange(page.id)} />
+                      </div>
+                    ))}
+                  </div>
+                  <div style={styles.actions}>
+                    <button onClick={handleSubmit} disabled={selectedPages.length === 0}
+                      style={{ ...styles.submitBtn, backgroundColor: selectedPages.length ? '#0073b1' : '#ccc',
+                        cursor: selectedPages.length ? 'pointer' : 'not-allowed' }} 
+                    > Submit </button>
+                  </div>
+                  </div>
+                </div>
+              )}
+              {/* end Popup for LinkedIn Pages */}
 
             </div>
           <Footer/>

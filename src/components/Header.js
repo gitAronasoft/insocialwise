@@ -3,8 +3,7 @@ import { Link, useLocation, useNavigate  } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../context/AuthContext';
 
-export default function Header() {
-
+export default function Header() {  
   const location = useLocation(); 
   const navigate = useNavigate();
   const { logout } = useContext(AuthContext);
@@ -18,6 +17,7 @@ export default function Header() {
   //     setauthInfo(null);
   //   }
   // }, []);
+  
   useEffect(() => {
     const setUserFromLocalStorage = () => {
       const userInfoData = JSON.parse(localStorage.getItem('userinfo'));
@@ -30,7 +30,7 @@ export default function Header() {
     setUserFromLocalStorage();
     window.addEventListener('userinfoUpdated', setUserFromLocalStorage);
     return () => window.removeEventListener('userinfoUpdated', setUserFromLocalStorage);
-  }, []);
+  }, []);  
 
   const handleLogout = async () => {
     try {
@@ -59,6 +59,11 @@ export default function Header() {
     }
   };
 
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
   return (
     <div className="page-header">
       <div className="header-wrapper row m-0">
@@ -82,7 +87,7 @@ export default function Header() {
             </div>
           </div>
         </form>
-        <div className="header-logo-wrapper col-auto p-0">
+        <div className="header-logo-wrapper col-auto p-0 ">
           <div className="logo-wrapper">
             <Link to="/">
               <img
@@ -97,21 +102,52 @@ export default function Header() {
               />
             </Link>
           </div>
-          <div className="toggle-sidebar">
-            <i className="status_toggle middle sidebar-toggle" data-feather="align-center"></i>
+           <div className="toggle-sidebar" onClick={toggleSidebar}>
+            {/* <i className="status_toggle middle sidebar-toggle" data-feather="align-center"></i> */}
+
+            {/* <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className=""
+          >
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg> */}
           </div>
+
+          
         </div>
-        <div className="nav-right col-xxl-12 col-xl-12 col-md-7 col-12 pull-right right-header p-0">
+        <div className="nav-right  col-12 pull-right right-header p-0">
           <div>
             <div className='row'>
               <div className='col-md-12'>
+                  
+
                 <div className='d-flex w-100 align-items-center gap-3 justify-content-between welcome-heading p-0'>
-                  <div> {authInfo ? (
+                  <div>
+                    <div className='d-flex gap-2 align-items-center'> 
+                     
+                     <div className="toggle-wrap">
+                      <span className="toggle-bar"></span>
+                    </div>
+                                      
+                    <div className='ms-5'>  {authInfo ? (
                     <h2>Welcome back, {authInfo.firstName} {authInfo.lastName}! 👋  </h2>
                   ) : (
                     <h3>Welcome back, Guest</h3>
                   )}
                     <p> Let's make magic happen with your social media strategy </p>
+                    </div>
+                    </div>
                   </div>
                   <div>
                     <div className='d-flex align-items-center gap-4 justify-content-between'>
@@ -122,7 +158,7 @@ export default function Header() {
                         </div>
                       </div>
                       <div>
-                        <div className='fs-6'> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bell h-5 w-5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg> </div>
+                        <div className='fs-6'> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-bell h-5 w-5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg> </div>
                       </div>
                       <div> 
                         <div className='custom-profile-btn' style={{cursor:'pointer'}}> 
@@ -149,9 +185,9 @@ export default function Header() {
                               <></>
                             )}
                           </span>
-                          <ul className="dropdown-menu">
-                              <li>
-                                <Link to="/settings" className="dropdown-item">
+                          <ul className="dropdown-menu rounded-3">
+                              <li className='p-1 rounded-3'>
+                                <Link to="/settings" className="dropdown-item rounded-3 border-0">
                                    <svg xmlns="http://www.w3.org/2000/svg" 
                                       width="24" height="24" 
                                       viewBox="0 0 24 24" 
@@ -168,11 +204,11 @@ export default function Header() {
                               </li>
                               {/* <li>
                                 <Link to="/settings" className="dropdown-item" href="javascript:void(0);">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings h-5 w-5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg> Settings
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-settings h-5 w-5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg> Settings
                                 </Link>
                               </li> */}
-                              <li>
-                                <a className="dropdown-item" href="javascript:void(0);" onClick={handleLogout}>
+                              <li className='p-1 rounded-3 border-0'>
+                                <a className="dropdown-item rounded-3 border-0" href="javascript:void(0);" onClick={handleLogout}>
                                   <svg xmlns="http://www.w3.org/2000/svg" 
                                       width="24" height="24" 
                                       viewBox="0 0 24 24" 

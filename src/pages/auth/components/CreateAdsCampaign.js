@@ -1633,7 +1633,7 @@ const CreateAdsCampaign = ({ show, onHide, connectedAccount, updateConnectedAcco
                 </Modal.Header>
                 <Modal.Body>            
                     <div className="row">
-                        <div className="col-sm-4 left-sidebar-steps">
+                        <div className="col-2 col-sm-4 col-md-5 col-xl-4 left-sidebar-steps">
                             <div className="progress-container">
                                 <div className="progress-steps">
                                     <div className="progress-line"></div>
@@ -1833,7 +1833,7 @@ const CreateAdsCampaign = ({ show, onHide, connectedAccount, updateConnectedAcco
                                 </div>
                             </div>
                         </div>
-                        <div className="col-sm-8 custom-y-scroll">
+                        <div className="col-10 col-sm-8 col-md-7 col-xl-8  custom-y-scroll">
                             {/* step one */}
                             <div className="page" id="page1">
                                 <div className="step-one">
@@ -2514,7 +2514,7 @@ const CreateAdsCampaign = ({ show, onHide, connectedAccount, updateConnectedAcco
                                         </p>
 
                                         <div className="d-flex align-items-center">
-                                            <div className="d-flex align-items-center gap-3">
+                                            <div className="d-flex align-items-center gap-3 mobile-responsive custom-width-100">
                                                 <div className="input-group" style={{ width: '150px' }}>
                                                     <span className="input-group-text">₹</span>
                                                     <input 
@@ -2570,7 +2570,7 @@ const CreateAdsCampaign = ({ show, onHide, connectedAccount, updateConnectedAcco
                                     </div>
 
                                     <div className="mb-2 custom-border-bottom">
-                                        <div className="d-flex gap-3">
+                                        <div className="d-flex gap-3 mobile-responsive custom-width-100">
                                             <div>
                                                 <label for="campaignName" className="form-label">From</label>
                                                 <div className="date-section">
@@ -2712,7 +2712,7 @@ const CreateAdsCampaign = ({ show, onHide, connectedAccount, updateConnectedAcco
                 </Modal.Body>            
                 <div className="modal-footer justify-content-between">
                     <button className="btn btn-secondary custom-back-btn" id="saveDraftBtn" disabled>Save as draft</button>
-                    <div>
+                    <div class="d-flex w-100 my-lg-3">
                         {isBackStep && (
                             <button 
                                 className="btn btn-outline-secondary me-2 custom-back-btn" 
@@ -3073,11 +3073,11 @@ const CreateAdsCampaign = ({ show, onHide, connectedAccount, updateConnectedAcco
                     dialogClassName="create-your-ads"
                 >
                     <Modal.Header closeButton className="custom-modal-header">
-                        <h5>Create your ads</h5>
+                        <h5>Create your ads </h5>
                     </Modal.Header>
                     <Modal.Body>
                         <div className="row">
-                            <div className='col-md-2'>
+                            <div className='col-md-4 col-xl-2 col-xxl-2 '>
                                 <div className="p-3">
                                     <div className="my-2 d-flex gap-3 justify-content-between align-items-center">
                                         <div>
@@ -3118,7 +3118,7 @@ const CreateAdsCampaign = ({ show, onHide, connectedAccount, updateConnectedAcco
                                 </div>
                             </div>
 
-                            <div className='col-md-6 bg-white create-your-ads-height'>
+                            <div className='col-md-8 col-xl-6 col-xxl-6 bg-white create-your-ads-height'>
                                 <div className="p-2 d-flex justify-content-between align-items-center">
                                     <div>
                                         <h6> New ad </h6>
@@ -3291,7 +3291,7 @@ const CreateAdsCampaign = ({ show, onHide, connectedAccount, updateConnectedAcco
                                 </div>
                             </div>
 
-                            <div className='col-md-4'>
+                            <div className='my-lg-3 col-md-12 col-xl-4 col-xxl-4 ads-custom-container'>
                                 <div className='post-preview-height'>
                                     <ul className="nav nav-tabs d-flex align-items-center justify-content-center my-3" id="previewTabs" role="tablist">
                                         <li className="nav-item" role="presentation">

@@ -15,6 +15,7 @@ const Campaigns = require("../models/mysql/Campaigns");
 const Adsets = require("../models/mysql/Adsets");
 const AdsetsAds = require("../models/mysql/AdsetsAds");
 const AdsCreative = require("../models/mysql/AdsCreative");
+const Activity = require("../models/mysql/Activity");
 //const Activity = require("../models/mysql/Activity");
 const activityCreate = require("../utils/activityCreate");
 const sequelize = require('../db/mysql');
@@ -65,7 +66,7 @@ router.post('/account-connection', async (req, res) => {
             // ✅ Step 2: Fetch all managed pages explicitly
             const pagesResponse = await fetch(`https://graph.facebook.com/v22.0/me/accounts?access_token=${shortToken}`);
             const pagesData = await pagesResponse.json();
-            console.log("pagesData", pagesData);
+            //console.log("pagesData", pagesData);
 
             if (!pagesData || !pagesData.data || pagesData.data.length === 0) {
                 return res.status(401).json({
@@ -155,10 +156,10 @@ async function fetchPageDetails(pagesList, loggedUser_uuid, user_social_id, res,
         } 
     }
     
-    await savePages(pagesDetailList, user_social_id, loggedUser_uuid, res, longLivedToken);     
-    fetchPageAnalytics(pagesDetailList, user_social_id, loggedUser_uuid);    
-    getPagePosts(pagesDetailList, user_social_id, loggedUser_uuid);
-    getPagePostsComments(pagesDetailList, user_social_id, loggedUser_uuid);
+    await savePages(pagesDetailList, user_social_id, loggedUser_uuid, res, longLivedToken);
+    await fetchPageAnalytics(pagesDetailList, user_social_id, loggedUser_uuid); 
+    await getPagePosts(pagesDetailList, user_social_id, loggedUser_uuid);
+    await getPagePostsComments(pagesDetailList, user_social_id, loggedUser_uuid);      
     fetchFacebookPageChat(pagesDetailList, user_social_id, loggedUser_uuid);    
 }
 
@@ -435,6 +436,695 @@ async function savePages(pagesData, loggedUser_uuid, user_social_id, res, longLi
     });    
 }
 
+async function getPagePosts(pagesDetailList, user_social_id, loggedUser_uuid, retries = 3, delay = 2000) {
+    setImmediate(async () => {
+        let attempt = 0;
+        while (attempt < retries) {
+            try {
+                console.log(`Attempt ${attempt + 1} to sync page posts`);
+                await fetchPagesPosts(pagesDetailList, user_social_id, loggedUser_uuid);
+                console.log('Background page posts sync completed.');
+                break;
+            } catch (err) {
+                console.error(`Sync failed on attempt ${attempt + 1}:`, err.message || err);
+                attempt++;
+                if (attempt < retries) {
+                    await new Promise(res => setTimeout(res, delay)); // wait before retry
+                } else {
+                    console.error(' All retry attempts failed for page posts.');
+                }
+            }
+        }
+    });
+}
+
+async function fetchPagesPosts(pagesData, loggedUser_uuid, user_social_id) {
+
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const activityRecord = await Activity.findAll({
+        where: {
+            user_uuid: loggedUser_uuid,
+            account_social_userid: user_social_id,
+            activity_type: "social",
+            activity_subType: "account",
+            action: "disconnect",            
+        },
+        order: [['id', 'DESC']], // get the latest one
+        raw: true,
+    });
+
+    if (activityRecord && activityRecord.length > 0) {        
+        const lastRow = activityRecord[0];
+        const activityDate = new Date(lastRow.activity_dateTime).toISOString().slice(0, 10); // 'YYYY-MM-DD' 
+        let disconnectedPages = [];
+        try {
+            const refData = JSON.parse(lastRow.reference_pageID || "{}");
+            disconnectedPages = refData?.activity_subType_id?.pages || [];
+        } catch (err) {
+            console.error("Invalid JSON in reference_pageID:", err);
+        }
+
+        // ✅ One day back from todayDate
+        // const todayPrevDateObj = new Date(todayDate);
+        // todayPrevDateObj.setDate(todayPrevDateObj.getDate() - 1);
+        // const todayPrevDate = todayPrevDateObj.toISOString().slice(0, 10);
+
+        // ✅ One day back from activityDate
+        const activityPrevDateObj = new Date(activityDate);
+        activityPrevDateObj.setDate(activityPrevDateObj.getDate() - 1);
+        const activityPrevDate = activityPrevDateObj.toISOString().slice(0, 10);
+
+        //console.log('todayDate →', todayDate);
+        //console.log('todayPrevDate (1 day before today) →', todayPrevDate);
+        //console.log('activityDate →', activityDate);
+        //console.log('activityPrevDate (1 day before activity date) →', activityPrevDate);
+        //console.log('lastRow' ,lastRow);    
+        
+        const matchedPages = pagesData.filter(page => disconnectedPages.includes(page.id));        
+        const uniquePages = pagesData.filter(page => !disconnectedPages.includes(page.id));
+        //console.log('disconnectedPages', disconnectedPages);
+        //console.log('matchedPages', matchedPages);
+        //console.log('uniquePages', uniquePages);        
+
+        if(matchedPages.length > 0){
+            // Step 2: Convert both to UNIX timestamps
+            const untilDate = new Date(todayDate);
+            const sinceDate = new Date(activityPrevDate);
+            const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+            const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+
+            //console.log('timestampSince →', timestampSince);
+            //console.log('timestampUntil →', timestampUntil);
+
+            for (const page of matchedPages) {
+                try {
+                    const facebookRes = await axios.get(`https://graph.facebook.com/v22.0/${page.id}/posts`, {
+                        params: {
+                            access_token: page.page_access_token,
+                            fields: 'id,message,created_time,insights.metric(post_impressions,post_impressions_unique),likes.summary(true),comments.summary(true){id,from,message,created_time,comments{id,from,message,created_time}},shares,attachments',
+                            since: timestampSince,
+                            until: timestampUntil,
+                        },
+                    });
+                    const posts = facebookRes.data.data || [];
+                    const fullData = [];
+                    for (const post of posts) {
+                        if (!post?.id) continue;
+                        const createdEpoch = new Date(post.created_time).getTime() / 1000;
+                        if (createdEpoch >= timestampSince && createdEpoch <= timestampUntil) {
+                            const likesCount = post.likes?.summary?.total_count || 0;
+                            const commentsCount = post.comments?.summary?.total_count || 0;
+                            const sharesCount = post.shares?.count || 0;
+                            const engagements = sharesCount
+                                ? likesCount + commentsCount + sharesCount / 3
+                                : likesCount + commentsCount / 2;
+                            const impressions =  post.insights?.data?.[0]?.values?.[0]?.value || 0;
+                            const unique_impressions =  post.insights?.data?.[1]?.values?.[0]?.value || 0;
+                            const formId = crypto.randomUUID();
+                            const record = {
+                                user_uuid: loggedUser_uuid,
+                                social_user_id: user_social_id,
+                                page_id: page.id,
+                                content: post.message || '',
+                                schedule_time: null,
+                                post_media: post.attachments?.data?.[0]?.media?.image?.src || null,
+                                platform_post_id: post.id,
+                                post_platform: "facebook",
+                                source: "API",
+                                form_id: formId,
+                                likes: likesCount,
+                                comments: commentsCount,
+                                shares: sharesCount,
+                                engagements: engagements || 0,
+                                impressions: impressions || 0,
+                                unique_impressions: unique_impressions || 0,
+                                week_date: new Date(post.created_time).toISOString().split("T")[0],
+                                status: "1"
+                            };
+                            fullData.push(record);
+                        }
+                    }
+                    for (const record of fullData) {
+                        if (record.platform_post_id) {
+                            const existing = await UserPost.findOne({
+                                where: {
+                                    platform_post_id: record.platform_post_id,
+                                    user_uuid: record.user_uuid,
+                                    page_id: record.page_id
+                                }
+                            });
+                            if (existing) {
+                                const { source, ...updatePayload } = record;
+                                await existing.update(updatePayload);
+                            } else {
+                                await UserPost.create(record);
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error("Facebook Weekly Posts fetch error:", err.response?.data || err.message);
+                    continue;
+                }
+            }
+        }
+
+        if(uniquePages.length > 0){
+            const today = new Date();
+            const untilDate = new Date(today);
+            untilDate.setDate(today.getDate() - 1);
+            const sinceDate = new Date(untilDate);
+            sinceDate.setDate(untilDate.getDate() - 90);
+            const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+            const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+            for (const page of uniquePages) {
+                try {
+                    const facebookRes = await axios.get(`https://graph.facebook.com/v22.0/${page.id}/posts`, {
+                        params: {
+                            access_token: page.page_access_token,
+                            fields: 'id,message,created_time,insights.metric(post_impressions,post_impressions_unique),likes.summary(true),comments.summary(true){id,from,message,created_time,comments{id,from,message,created_time}},shares,attachments',
+                            since: timestampSince,
+                            until: timestampUntil,
+                        },
+                    });
+                    const posts = facebookRes.data.data || [];
+                    const fullData = [];
+                    for (const post of posts) {
+                        if (!post?.id) continue;
+                        const createdEpoch = new Date(post.created_time).getTime() / 1000;
+                        if (createdEpoch >= timestampSince && createdEpoch <= timestampUntil) {
+                            const likesCount = post.likes?.summary?.total_count || 0;
+                            const commentsCount = post.comments?.summary?.total_count || 0;
+                            const sharesCount = post.shares?.count || 0;
+                            const engagements = sharesCount
+                                ? likesCount + commentsCount + sharesCount / 3
+                                : likesCount + commentsCount / 2;
+                            const impressions =  post.insights?.data?.[0]?.values?.[0]?.value || 0;
+                            const unique_impressions =  post.insights?.data?.[1]?.values?.[0]?.value || 0;
+                            const formId = crypto.randomUUID();
+                            const record = {
+                                user_uuid: loggedUser_uuid,
+                                social_user_id: user_social_id,
+                                page_id: page.id,
+                                content: post.message || '',
+                                schedule_time: null,
+                                post_media: post.attachments?.data?.[0]?.media?.image?.src || null,
+                                platform_post_id: post.id,
+                                post_platform: "facebook",
+                                source: "API",
+                                form_id: formId,
+                                likes: likesCount,
+                                comments: commentsCount,
+                                shares: sharesCount,
+                                engagements: engagements || 0,
+                                impressions: impressions || 0,
+                                unique_impressions: unique_impressions || 0,
+                                week_date: new Date(post.created_time).toISOString().split("T")[0],
+                                status: "1"
+                            };
+                            fullData.push(record);
+                        }
+                    }
+                    for (const record of fullData) {
+                        if (record.platform_post_id) {
+                            const existing = await UserPost.findOne({
+                                where: {
+                                    platform_post_id: record.platform_post_id,
+                                    user_uuid: record.user_uuid,
+                                    page_id: record.page_id
+                                }
+                            });
+                            if (existing) {
+                                const { source, ...updatePayload } = record;
+                                await existing.update(updatePayload);
+                            } else {
+                                await UserPost.create(record);
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error("Facebook Weekly Posts fetch error:", err.response?.data || err.message);
+                    continue;
+                }
+            }
+        }
+    } else {
+        //console.log('activityRecord not found');
+        const today = new Date();
+        const untilDate = new Date(today);
+        untilDate.setDate(today.getDate() - 1);
+        const sinceDate = new Date(untilDate);
+        sinceDate.setDate(untilDate.getDate() - 90);
+        const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+        const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+
+        for (const page of pagesData) {
+            try {
+                const facebookRes = await axios.get(`https://graph.facebook.com/v22.0/${page.id}/posts`, {
+                    params: {
+                        access_token: page.page_access_token,
+                        fields: 'id,message,created_time,insights.metric(post_impressions,post_impressions_unique),likes.summary(true),comments.summary(true){id,from,message,created_time,comments{id,from,message,created_time}},shares,attachments',
+                        since: timestampSince,
+                        until: timestampUntil,
+                    },
+                });
+                const posts = facebookRes.data.data || [];
+                const fullData = [];
+                for (const post of posts) {
+                    if (!post?.id) continue;
+                    const createdEpoch = new Date(post.created_time).getTime() / 1000;
+                    if (createdEpoch >= timestampSince && createdEpoch <= timestampUntil) {
+                        const likesCount = post.likes?.summary?.total_count || 0;
+                        const commentsCount = post.comments?.summary?.total_count || 0;
+                        const sharesCount = post.shares?.count || 0;
+                        const engagements = sharesCount
+                            ? likesCount + commentsCount + sharesCount / 3
+                            : likesCount + commentsCount / 2;
+                        const impressions =  post.insights?.data?.[0]?.values?.[0]?.value || 0;
+                        const unique_impressions =  post.insights?.data?.[1]?.values?.[0]?.value || 0;
+                        const formId = crypto.randomUUID();
+                        const record = {
+                            user_uuid: loggedUser_uuid,
+                            social_user_id: user_social_id,
+                            page_id: page.id,
+                            content: post.message || '',
+                            schedule_time: null,
+                            post_media: post.attachments?.data?.[0]?.media?.image?.src || null,
+                            platform_post_id: post.id,
+                            post_platform: "facebook",
+                            source: "API",
+                            form_id: formId,
+                            likes: likesCount,
+                            comments: commentsCount,
+                            shares: sharesCount,
+                            engagements: engagements || 0,
+                            impressions: impressions || 0,
+                            unique_impressions: unique_impressions || 0,
+                            week_date: new Date(post.created_time).toISOString().split("T")[0],
+                            status: "1"
+                        };
+                        fullData.push(record);
+                    }
+                }
+                for (const record of fullData) {
+                    if (record.platform_post_id) {
+                        const existing = await UserPost.findOne({
+                            where: {
+                                platform_post_id: record.platform_post_id,
+                                user_uuid: record.user_uuid,
+                                page_id: record.page_id
+                            }
+                        });
+                        if (existing) {
+                            const { source, ...updatePayload } = record;
+                            await existing.update(updatePayload);
+                        } else {
+                            await UserPost.create(record);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Facebook Weekly Posts fetch error:", err.response?.data || err.message);
+                continue;
+            }
+        }
+    }
+}
+
+async function getPagePostsComments(pagesDetailList, user_social_id, loggedUser_uuid, retries = 3, delay = 2000) {
+    setImmediate(async () => {
+        let attempt = 0;
+        while (attempt < retries) {
+            try {
+                console.log(`Attempt ${attempt + 1} to sync page posts comments`);
+                await fetchPagesPostsComments(pagesDetailList, user_social_id, loggedUser_uuid);
+                console.log('Background page posts comments sync completed.');
+                break;
+            } catch (err) {
+                console.error(`Sync failed on attempt ${attempt + 1}:`, err.message || err);
+                attempt++;
+                if (attempt < retries) {
+                    await new Promise(res => setTimeout(res, delay)); // wait before retry
+                } else {
+                    console.error(' All retry attempts failed for page posts comments.');
+                }
+            }
+        }
+    });
+}
+
+async function fetchPagesPostsComments(pagesData, loggedUser_uuid, user_social_id) {    
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const activityRecord = await Activity.findAll({
+        where: {
+            user_uuid: loggedUser_uuid,
+            account_social_userid: user_social_id,
+            activity_type: "social",
+            activity_subType: "account",
+            action: "disconnect",            
+        },
+        order: [['id', 'DESC']],
+        raw: true,
+    });
+
+    if (activityRecord && activityRecord.length > 0) {
+        const lastRow = activityRecord[0];
+        const activityDate = new Date(lastRow.activity_dateTime).toISOString().slice(0, 10);
+        let disconnectedPages = [];
+        try {
+            const refData = JSON.parse(lastRow.reference_pageID || "{}");
+            disconnectedPages = refData?.activity_subType_id?.pages || [];
+        } catch (err) {
+            console.error("Invalid JSON in reference_pageID:", err);
+        } 
+
+        const activityPrevDateObj = new Date(activityDate);
+        activityPrevDateObj.setDate(activityPrevDateObj.getDate() - 1);
+        const activityPrevDate = activityPrevDateObj.toISOString().slice(0, 10);
+
+        const matchedPages = pagesData.filter(page => disconnectedPages.includes(page.id));        
+        const uniquePages = pagesData.filter(page => !disconnectedPages.includes(page.id));
+
+        if(matchedPages.length > 0){
+            const untilDate = new Date(todayDate);
+            const sinceDate = new Date(activityPrevDate);
+            const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+            const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+            const allComments = [];
+
+            for (const page of matchedPages) {
+                try {
+                    const url = new URL(`https://graph.facebook.com/v22.0/${page.id}/posts`);
+                    url.search = new URLSearchParams({
+                        fields: 'id,likes.summary(true),comments.limit(50).order(reverse_chronological).summary(true){created_time,message,from,likes.summary(true),comments{created_time,message,from,likes.summary(true),comments{created_time,message,from,likes.summary(true)}}}',
+                        access_token: page.page_access_token,
+                        //limit: 25,
+                        since: timestampSince,
+                        until: timestampUntil
+                    });    
+
+                    const response = await fetch(url.toString());
+                    const result = await response.json();
+                    let posts = result.data;
+                    const postsWithComments = posts.filter(
+                        post => post.comments?.summary?.total_count > 0
+                    );
+                    function flattenCommentTree(comment, parentCommentId = null, postMetadata = {}, level = 0) {
+                        const flat = [];
+                        const current = {
+                            ...postMetadata,
+                            comment_id: comment.id,
+                            parent_comment_id: parentCommentId,
+                            from_id: comment.from?.id || null,
+                            from_name: comment.from?.name || null,
+                            comment: comment.message || '',
+                            comment_created_time: comment.created_time,
+                            comment_type: parentCommentId ? 'reply' : 'top_level',
+                        };
+                        flat.push(current);
+                        if (comment.comments?.data?.length > 0) {
+                            for (const reply of comment.comments.data) {
+                                flat.push(...flattenCommentTree(reply, comment.id, postMetadata, level + 1));
+                            }
+                        }
+                        return flat;
+                    }
+                    for (const post of postsWithComments) {
+                        const postMetadata = {
+                            user_uuid: loggedUser_uuid,
+                            social_userid: user_social_id,
+                            platform_page_Id: page.id,
+                            platform: 'facebook',
+                            post_id: post.id
+                        };
+                        const topComments = post.comments?.data || [];
+                        for (const comment of topComments) {
+                            const flattenedComments = flattenCommentTree(comment, null, postMetadata);
+                            allComments.push(...flattenedComments);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Facebook Weekly Posts fetch error:", err.response?.data || err.message);
+                    continue;
+                }
+
+                // Remove duplicates using comment_id
+                const uniqueComments = new Map();
+                for (const item of allComments) {
+                    if (!uniqueComments.has(item.comment_id)) {
+                        uniqueComments.set(item.comment_id, item);
+                    }
+                }
+
+                // Save unique comments to DB (skip duplicates already saved)
+                for (const commentData of uniqueComments.values()) {
+                    try {
+                        const existing = await PostComments.findOne({
+                            where: { comment_id: commentData.comment_id }
+                        });
+
+                        if (!existing) {
+                            await PostComments.create(commentData);
+                        }
+                    } catch (err) {
+                        console.error('Error saving comment to DB:', {
+                            comment_id: commentData.comment_id,
+                            error: err.message || err
+                        });
+                        continue; // Skip this comment and continue with the next
+                    }
+                }
+
+                // N8N Bulk Comments Sentiment update function
+                    try {
+                        const response = await axios.post(`${process.env.N8N_BULK_COMMENT_WEBHOOK_URL}`, {
+                            user_id: loggedUser_uuid
+                        });
+                        console.log("N8N bulk comment sentiment updated response: ",response.data);
+                    } catch(err){
+                        console.error('LinkedIn bulk comment sentiment update error:', err.response?.data || err.message);
+                    }
+                // N8N function ends here
+            }
+        }
+
+        if(uniquePages.length > 0){
+            const today = new Date();
+            const untilDate = new Date(today);
+            untilDate.setDate(today.getDate() - 1);
+            const sinceDate = new Date(untilDate);
+            sinceDate.setDate(untilDate.getDate() - 90);
+
+            const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+            const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+            const allComments = [];
+            for (const page of uniquePages) {
+                try {
+                    const url = new URL(`https://graph.facebook.com/v22.0/${page.id}/posts`);
+                    url.search = new URLSearchParams({
+                        fields: 'id,likes.summary(true),comments.limit(50).order(reverse_chronological).summary(true){created_time,message,from,likes.summary(true),comments{created_time,message,from,likes.summary(true),comments{created_time,message,from,likes.summary(true)}}}',
+                        access_token: page.page_access_token,
+                        //limit: 25,
+                        since: timestampSince,
+                        until: timestampUntil
+                    });           
+
+                    const response = await fetch(url.toString());
+                    const result = await response.json();
+                    let posts = result.data;
+                    const postsWithComments = posts.filter(
+                        post => post.comments?.summary?.total_count > 0
+                    );
+
+                    function flattenCommentTree(comment, parentCommentId = null, postMetadata = {}, level = 0) {
+                        const flat = [];
+                        const current = {
+                            ...postMetadata,
+                            comment_id: comment.id,
+                            parent_comment_id: parentCommentId,
+                            from_id: comment.from?.id || null,
+                            from_name: comment.from?.name || null,
+                            comment: comment.message || '',
+                            comment_created_time: comment.created_time,
+                            comment_type: parentCommentId ? 'reply' : 'top_level',
+                        };
+                        flat.push(current);
+                        if (comment.comments?.data?.length > 0) {
+                            for (const reply of comment.comments.data) {
+                                flat.push(...flattenCommentTree(reply, comment.id, postMetadata, level + 1));
+                            }
+                        }
+                        return flat;
+                    }
+
+                    for (const post of postsWithComments) {
+                        const postMetadata = {
+                            user_uuid: loggedUser_uuid,
+                            social_userid: user_social_id,
+                            platform_page_Id: page.id,
+                            platform: 'facebook',
+                            post_id: post.id
+                        };
+                        const topComments = post.comments?.data || [];
+                        for (const comment of topComments) {
+                            const flattenedComments = flattenCommentTree(comment, null, postMetadata);
+                            allComments.push(...flattenedComments);
+                        }
+                    }
+
+                } catch (err) {
+                    console.error("Facebook Weekly Posts fetch error:", err.response?.data || err.message);
+                    continue;
+                }
+            }
+            // Remove duplicates using comment_id
+            const uniqueComments = new Map();
+            for (const item of allComments) {
+                if (!uniqueComments.has(item.comment_id)) {
+                    uniqueComments.set(item.comment_id, item);
+                }
+            }
+
+            // Save unique comments to DB (skip duplicates already saved)
+            for (const commentData of uniqueComments.values()) {
+                try {
+                    const existing = await PostComments.findOne({
+                        where: { comment_id: commentData.comment_id }
+                    });
+
+                    if (!existing) {
+                        await PostComments.create(commentData);
+                    }
+                } catch (err) {
+                    console.error('Error saving comment to DB:', {
+                        comment_id: commentData.comment_id,
+                        error: err.message || err
+                    });
+                    continue; // Skip this comment and continue with the next
+                }
+            }
+
+            // N8N Bulk Comments Sentiment update function
+                try {
+                    const response = await axios.post(`${process.env.N8N_BULK_COMMENT_WEBHOOK_URL}`, {
+                        user_id: loggedUser_uuid
+                    });
+                    console.log("N8N bulk comment sentiment updated response: ",response.data);
+                } catch(err){
+                    console.error('LinkedIn bulk comment sentiment update error:', err.response?.data || err.message);
+                }
+            // N8N function ends here
+        }
+    } else {
+        const today = new Date();
+        const untilDate = new Date(today);
+        untilDate.setDate(today.getDate() - 1);
+        const sinceDate = new Date(untilDate);
+        sinceDate.setDate(untilDate.getDate() - 90);
+
+        const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+        const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+        const allComments = [];
+        for (const page of pagesData) {
+            try {
+                const url = new URL(`https://graph.facebook.com/v22.0/${page.id}/posts`);
+                url.search = new URLSearchParams({
+                    fields: 'id,likes.summary(true),comments.limit(50).order(reverse_chronological).summary(true){created_time,message,from,likes.summary(true),comments{created_time,message,from,likes.summary(true),comments{created_time,message,from,likes.summary(true)}}}',
+                    access_token: page.page_access_token,
+                    //limit: 25,
+                    since: timestampSince,
+                    until: timestampUntil
+                });           
+
+                const response = await fetch(url.toString());
+                const result = await response.json();
+                let posts = result.data;
+                const postsWithComments = posts.filter(
+                    post => post.comments?.summary?.total_count > 0
+                );
+
+                function flattenCommentTree(comment, parentCommentId = null, postMetadata = {}, level = 0) {
+                    const flat = [];
+                    const current = {
+                        ...postMetadata,
+                        comment_id: comment.id,
+                        parent_comment_id: parentCommentId,
+                        from_id: comment.from?.id || null,
+                        from_name: comment.from?.name || null,
+                        comment: comment.message || '',
+                        comment_created_time: comment.created_time,
+                        comment_type: parentCommentId ? 'reply' : 'top_level',
+                    };
+                    flat.push(current);
+                    if (comment.comments?.data?.length > 0) {
+                        for (const reply of comment.comments.data) {
+                            flat.push(...flattenCommentTree(reply, comment.id, postMetadata, level + 1));
+                        }
+                    }
+                    return flat;
+                }
+
+                for (const post of postsWithComments) {
+                    const postMetadata = {
+                        user_uuid: loggedUser_uuid,
+                        social_userid: user_social_id,
+                        platform_page_Id: page.id,
+                        platform: 'facebook',
+                        post_id: post.id
+                    };
+                    const topComments = post.comments?.data || [];
+                    for (const comment of topComments) {
+                        const flattenedComments = flattenCommentTree(comment, null, postMetadata);
+                        allComments.push(...flattenedComments);
+                    }
+                }
+
+            } catch (err) {
+                console.error("Facebook Weekly Posts fetch error:", err.response?.data || err.message);
+                continue;
+            }
+        }
+
+        // Remove duplicates using comment_id
+            const uniqueComments = new Map();
+            for (const item of allComments) {
+                if (!uniqueComments.has(item.comment_id)) {
+                    uniqueComments.set(item.comment_id, item);
+                }
+            }
+
+        // Save unique comments to DB (skip duplicates already saved)
+            for (const commentData of uniqueComments.values()) {
+                try {
+                    const existing = await PostComments.findOne({
+                        where: { comment_id: commentData.comment_id }
+                    });
+
+                    if (!existing) {
+                        await PostComments.create(commentData);
+                    }
+                } catch (err) {
+                    console.error('Error saving comment to DB:', {
+                        comment_id: commentData.comment_id,
+                        error: err.message || err
+                    });
+                    continue; // Skip this comment and continue with the next
+                }
+            }
+
+        // N8N Bulk Comments Sentiment update function
+            try {
+                const response = await axios.post(`${process.env.N8N_BULK_COMMENT_WEBHOOK_URL}`, {
+                    user_id: loggedUser_uuid
+                });
+                console.log("N8N bulk comment sentiment updated response:".green ,response.data);
+            } catch(err){
+                console.error('LinkedIn bulk comment sentiment update error:'.red , err.response?.data || err.message);
+            }
+        // N8N function ends here
+    }
+
+}
+
 async function fetchPageAnalytics(pagesDetailList, user_social_id, loggedUser_uuid, retries = 3, delay = 2000) {
     setImmediate(async () => {
         let attempt = 0;
@@ -459,158 +1149,495 @@ async function fetchPageAnalytics(pagesDetailList, user_social_id, loggedUser_uu
 
 async function facebookPageAnalytics(pagesData, loggedUser_uuid, user_social_id) {
     //console.log('pagesData', pagesData);
-    const today = new Date();
-    const untilDate = new Date(today);
-    untilDate.setDate(today.getDate() - 1);
-    const sinceDate = new Date(untilDate);
-    sinceDate.setDate(untilDate.getDate() - 90);
-    // Format as YYYY-MM-DD
-    untilDate.toISOString().split('T')[0];
-    sinceDate.toISOString().split('T')[0];
-    // Timestamps in seconds
-    const timestampUntil = Math.floor(untilDate.getTime() / 1000);
-    const timestampSince = Math.floor(sinceDate.getTime() / 1000);
-    const errors = [];
-    const responses = [];
-    for (const page of pagesData) {
-        //console.log('page:',page);
-        try {        
-            const response = await axios.get(
-                `https://graph.facebook.com/v22.0/${page.id}/insights`,
-                {
-                    params: {
-                        metric: 'page_daily_follows',
-                        period: 'day',
-                        access_token: page.page_access_token,
-                        since: timestampSince,
-                        until: timestampUntil
-                    }
-                }
-            ); 
-            const analyticsData = response.data;            
-            analyticsData.page_id = page.id;
-            analyticsData.loggedUser_uuid = loggedUser_uuid;
-            responses.push({ analytic_type: 'page_daily_follows', data: analyticsData });        
-        } catch (error) {
-            console.error('Daily follows API Error:', error);
-            errors.push({ type: 'page_daily_follows', error });
-        }
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const activityRecord = await Activity.findAll({
+        where: {
+            user_uuid: loggedUser_uuid,
+            account_social_userid: user_social_id,
+            activity_type: "social",
+            activity_subType: "account",
+            action: "disconnect",            
+        },
+        order: [['id', 'DESC']], // get the latest one
+        raw: true,
+    });
 
-        try {           
-            const response = await axios.get(
-                `https://graph.facebook.com/v22.0/${page.id}/insights`,
-                {
-                    params: {
-                        metric: 'page_impressions',
-                        period: 'day',
-                        access_token: page.page_access_token,
-                        since: timestampSince,
-                        until: timestampUntil
-                    }
-                }
-            ); 
-            const analyticsData = response.data;
-            analyticsData.page_id = page.id;
-            analyticsData.loggedUser_uuid = loggedUser_uuid;           
-            responses.push({ analytic_type: 'page_impressions', data: analyticsData });            
-        } catch (error) {
-            console.error('Daily follows API Error:', error);
-            errors.push({ type: 'page_impressions', error });
-        }
+    if (activityRecord && activityRecord.length > 0) {
+        const lastRow = activityRecord[0];
+        const activityDate = new Date(lastRow.activity_dateTime).toISOString().slice(0, 10); // 'YYYY-MM-DD'    
 
-        try {        
-            const response = await axios.get(
-                `https://graph.facebook.com/v22.0/${page.id}/insights`,
-                {
-                    params: {
-                        metric: 'page_impressions_unique',
-                        period: 'day',
-                        access_token: page.page_access_token,
-                        since: timestampSince, 
-                        until: timestampUntil
-                    }
-                }
-            ); 
-            const analyticsData = response.data;
-            analyticsData.page_id = page.id;
-            analyticsData.loggedUser_uuid = loggedUser_uuid; 
-            responses.push({ analytic_type: 'page_impressions_unique', data: analyticsData });
-        } catch (error) {
-            console.error('Daily impressions unique API Error:', error);
-            errors.push({ type: 'page_impressions_unique', error });
-        }
-
-        try {          
-            const response = await axios.get(
-                `https://graph.facebook.com/v22.0/${page.id}/insights`,
-                {
-                    params: {
-                        metric: 'page_views_total',
-                        period: 'day',
-                        access_token: page.page_access_token,
-                        since: timestampSince,
-                        until: timestampUntil
-                    }
-                }
-            ); 
-            const page_views_total = response.data;
-            page_views_total.page_id = page.id;
-            page_views_total.loggedUser_uuid = loggedUser_uuid;
-            responses.push({ analytic_type: 'page_views_total', data: page_views_total });
-        } catch (error) {
-            console.error('Daily page_views_total API Error:', error);
-            errors.push({ type: 'page_views_total', error });
-        }
-
+        let disconnectedPages = [];
         try {
-            const response = await axios.get(
-                `https://graph.facebook.com/v22.0/${page.id}/insights`,
-                {
-                    params: {
-                        metric: 'page_post_engagements',
-                        period: 'day',
-                        access_token: page.page_access_token,
-                        since: timestampSince, 
-                        until: timestampUntil 
-                    }
-                }
-            );
-            const page_post_engagements = response.data;
-            page_post_engagements.page_id = page.id;
-            page_post_engagements.loggedUser_uuid = loggedUser_uuid;
-            responses.push({ analytic_type: 'page_post_engagements', data: page_post_engagements });
-        } catch (error) {
-            console.error('API Error:', error.response?.data || error.message);
+            const refData = JSON.parse(lastRow.reference_pageID || "{}");
+            disconnectedPages = refData?.activity_subType_id?.pages || [];
+        } catch (err) {
+            console.error("Invalid JSON in reference_pageID:", err);
         }
 
-        try {
-            const response = await axios.get(
-                `https://graph.facebook.com/v22.0/${page.id}/insights`,
-                {
-                    params: {
-                        metric: 'page_actions_post_reactions_like_total',
-                        period: 'day',
-                        access_token: page.page_access_token,
-                        since: timestampSince, 
-                        until: timestampUntil 
-                    }
+        const activityPrevDateObj = new Date(activityDate);
+        activityPrevDateObj.setDate(activityPrevDateObj.getDate() - 1);
+        const activityPrevDate = activityPrevDateObj.toISOString().slice(0, 10);
+
+        const matchedPages = pagesData.filter(page => disconnectedPages.includes(page.id));        
+        const uniquePages = pagesData.filter(page => !disconnectedPages.includes(page.id));
+
+        if(matchedPages.length > 0){
+            const untilDate = new Date(todayDate);
+            const sinceDate = new Date(activityPrevDate);
+            const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+            const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+            const errors = [];
+            const responses = [];
+            for (const page of matchedPages) {
+                //console.log('page:',page);
+                try {        
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_daily_follows',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince,
+                                until: timestampUntil
+                            }
+                        }
+                    ); 
+                    const analyticsData = response.data;            
+                    analyticsData.page_id = page.id;
+                    analyticsData.loggedUser_uuid = loggedUser_uuid;
+                    responses.push({ analytic_type: 'page_daily_follows', data: analyticsData });        
+                } catch (error) {
+                    console.error('Daily follows API Error:', error);
+                    errors.push({ type: 'page_daily_follows', error });
                 }
-            );
-            const page_actions_post_reactions_like_total = response.data;
-            page_actions_post_reactions_like_total.page_id = page.id;
-            page_actions_post_reactions_like_total.loggedUser_uuid = loggedUser_uuid;
-            responses.push({ analytic_type: 'page_actions_post_reactions_like_total', data: page_actions_post_reactions_like_total });           
-        } catch (error) {
-            console.error('API Error:', error.response?.data || error.message);
+
+                try {           
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_impressions',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince,
+                                until: timestampUntil
+                            }
+                        }
+                    ); 
+                    const analyticsData = response.data;
+                    analyticsData.page_id = page.id;
+                    analyticsData.loggedUser_uuid = loggedUser_uuid;           
+                    responses.push({ analytic_type: 'page_impressions', data: analyticsData });            
+                } catch (error) {
+                    console.error('Daily follows API Error:', error);
+                    errors.push({ type: 'page_impressions', error });
+                }
+
+                try {        
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_impressions_unique',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince, 
+                                until: timestampUntil
+                            }
+                        }
+                    ); 
+                    const analyticsData = response.data;
+                    analyticsData.page_id = page.id;
+                    analyticsData.loggedUser_uuid = loggedUser_uuid; 
+                    responses.push({ analytic_type: 'page_impressions_unique', data: analyticsData });
+                } catch (error) {
+                    console.error('Daily impressions unique API Error:', error);
+                    errors.push({ type: 'page_impressions_unique', error });
+                }
+
+                try {          
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_views_total',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince,
+                                until: timestampUntil
+                            }
+                        }
+                    ); 
+                    const page_views_total = response.data;
+                    page_views_total.page_id = page.id;
+                    page_views_total.loggedUser_uuid = loggedUser_uuid;
+                    responses.push({ analytic_type: 'page_views_total', data: page_views_total });
+                } catch (error) {
+                    console.error('Daily page_views_total API Error:', error);
+                    errors.push({ type: 'page_views_total', error });
+                }
+
+                try {
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_post_engagements',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince, 
+                                until: timestampUntil 
+                            }
+                        }
+                    );
+                    const page_post_engagements = response.data;
+                    page_post_engagements.page_id = page.id;
+                    page_post_engagements.loggedUser_uuid = loggedUser_uuid;
+                    responses.push({ analytic_type: 'page_post_engagements', data: page_post_engagements });
+                } catch (error) {
+                    console.error('API Error:', error.response?.data || error.message);
+                }
+
+                try {
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_actions_post_reactions_like_total',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince, 
+                                until: timestampUntil 
+                            }
+                        }
+                    );
+                    const page_actions_post_reactions_like_total = response.data;
+                    page_actions_post_reactions_like_total.page_id = page.id;
+                    page_actions_post_reactions_like_total.loggedUser_uuid = loggedUser_uuid;
+                    responses.push({ analytic_type: 'page_actions_post_reactions_like_total', data: page_actions_post_reactions_like_total });           
+                } catch (error) {
+                    console.error('API Error:', error.response?.data || error.message);
+                }
+            } 
+        
+            if (errors.length > 0) {        
+                const errorMessage = errors.map(e => `${e.type}: ${e.error.message}`).join('\n');
+                throw new Error(`Some analytics failed:\n${errorMessage}`);
+            } else {
+                await saveAnalyticsData(responses);
+            }
         }
-    } 
-    
-    if (errors.length > 0) {        
-        const errorMessage = errors.map(e => `${e.type}: ${e.error.message}`).join('\n');
-        throw new Error(`Some analytics failed:\n${errorMessage}`);
+
+        if(uniquePages.length > 0){
+            const today = new Date();
+            const untilDate = new Date(today);
+            untilDate.setDate(today.getDate() - 1);
+            const sinceDate = new Date(untilDate);
+            sinceDate.setDate(untilDate.getDate() - 90);
+            // Format as YYYY-MM-DD
+            untilDate.toISOString().split('T')[0];
+            sinceDate.toISOString().split('T')[0];
+            // Timestamps in seconds
+            const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+            const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+            const errors = [];
+            const responses = [];
+            for (const page of uniquePages) {
+                //console.log('page:',page);
+                try {        
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_daily_follows',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince,
+                                until: timestampUntil
+                            }
+                        }
+                    ); 
+                    const analyticsData = response.data;            
+                    analyticsData.page_id = page.id;
+                    analyticsData.loggedUser_uuid = loggedUser_uuid;
+                    responses.push({ analytic_type: 'page_daily_follows', data: analyticsData });        
+                } catch (error) {
+                    console.error('Daily follows API Error:', error);
+                    errors.push({ type: 'page_daily_follows', error });
+                }
+
+                try {           
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_impressions',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince,
+                                until: timestampUntil
+                            }
+                        }
+                    ); 
+                    const analyticsData = response.data;
+                    analyticsData.page_id = page.id;
+                    analyticsData.loggedUser_uuid = loggedUser_uuid;           
+                    responses.push({ analytic_type: 'page_impressions', data: analyticsData });            
+                } catch (error) {
+                    console.error('Daily follows API Error:', error);
+                    errors.push({ type: 'page_impressions', error });
+                }
+
+                try {        
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_impressions_unique',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince, 
+                                until: timestampUntil
+                            }
+                        }
+                    ); 
+                    const analyticsData = response.data;
+                    analyticsData.page_id = page.id;
+                    analyticsData.loggedUser_uuid = loggedUser_uuid; 
+                    responses.push({ analytic_type: 'page_impressions_unique', data: analyticsData });
+                } catch (error) {
+                    console.error('Daily impressions unique API Error:', error);
+                    errors.push({ type: 'page_impressions_unique', error });
+                }
+
+                try {          
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_views_total',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince,
+                                until: timestampUntil
+                            }
+                        }
+                    ); 
+                    const page_views_total = response.data;
+                    page_views_total.page_id = page.id;
+                    page_views_total.loggedUser_uuid = loggedUser_uuid;
+                    responses.push({ analytic_type: 'page_views_total', data: page_views_total });
+                } catch (error) {
+                    console.error('Daily page_views_total API Error:', error);
+                    errors.push({ type: 'page_views_total', error });
+                }
+
+                try {
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_post_engagements',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince, 
+                                until: timestampUntil 
+                            }
+                        }
+                    );
+                    const page_post_engagements = response.data;
+                    page_post_engagements.page_id = page.id;
+                    page_post_engagements.loggedUser_uuid = loggedUser_uuid;
+                    responses.push({ analytic_type: 'page_post_engagements', data: page_post_engagements });
+                } catch (error) {
+                    console.error('API Error:', error.response?.data || error.message);
+                }
+
+                try {
+                    const response = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                        {
+                            params: {
+                                metric: 'page_actions_post_reactions_like_total',
+                                period: 'day',
+                                access_token: page.page_access_token,
+                                since: timestampSince, 
+                                until: timestampUntil 
+                            }
+                        }
+                    );
+                    const page_actions_post_reactions_like_total = response.data;
+                    page_actions_post_reactions_like_total.page_id = page.id;
+                    page_actions_post_reactions_like_total.loggedUser_uuid = loggedUser_uuid;
+                    responses.push({ analytic_type: 'page_actions_post_reactions_like_total', data: page_actions_post_reactions_like_total });           
+                } catch (error) {
+                    console.error('API Error:', error.response?.data || error.message);
+                }
+            } 
+        
+            if (errors.length > 0) {        
+                const errorMessage = errors.map(e => `${e.type}: ${e.error.message}`).join('\n');
+                throw new Error(`Some analytics failed:\n${errorMessage}`);
+            } else {
+                await saveAnalyticsData(responses);
+            } 
+        }
+
     } else {
-        await saveAnalyticsData(responses);
-    }    
+        const today = new Date();
+        const untilDate = new Date(today);
+        untilDate.setDate(today.getDate() - 1);
+        const sinceDate = new Date(untilDate);
+        sinceDate.setDate(untilDate.getDate() - 90);
+        // Format as YYYY-MM-DD
+        untilDate.toISOString().split('T')[0];
+        sinceDate.toISOString().split('T')[0];
+        // Timestamps in seconds
+        const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+        const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+        const errors = [];
+        const responses = [];
+        for (const page of pagesData) {
+            //console.log('page:',page);
+            try {        
+                const response = await axios.get(
+                    `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                    {
+                        params: {
+                            metric: 'page_daily_follows',
+                            period: 'day',
+                            access_token: page.page_access_token,
+                            since: timestampSince,
+                            until: timestampUntil
+                        }
+                    }
+                ); 
+                const analyticsData = response.data;            
+                analyticsData.page_id = page.id;
+                analyticsData.loggedUser_uuid = loggedUser_uuid;
+                responses.push({ analytic_type: 'page_daily_follows', data: analyticsData });        
+            } catch (error) {
+                console.error('Daily follows API Error:', error);
+                errors.push({ type: 'page_daily_follows', error });
+            }
+
+            try {           
+                const response = await axios.get(
+                    `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                    {
+                        params: {
+                            metric: 'page_impressions',
+                            period: 'day',
+                            access_token: page.page_access_token,
+                            since: timestampSince,
+                            until: timestampUntil
+                        }
+                    }
+                ); 
+                const analyticsData = response.data;
+                analyticsData.page_id = page.id;
+                analyticsData.loggedUser_uuid = loggedUser_uuid;           
+                responses.push({ analytic_type: 'page_impressions', data: analyticsData });            
+            } catch (error) {
+                console.error('Daily follows API Error:', error);
+                errors.push({ type: 'page_impressions', error });
+            }
+
+            try {        
+                const response = await axios.get(
+                    `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                    {
+                        params: {
+                            metric: 'page_impressions_unique',
+                            period: 'day',
+                            access_token: page.page_access_token,
+                            since: timestampSince, 
+                            until: timestampUntil
+                        }
+                    }
+                ); 
+                const analyticsData = response.data;
+                analyticsData.page_id = page.id;
+                analyticsData.loggedUser_uuid = loggedUser_uuid; 
+                responses.push({ analytic_type: 'page_impressions_unique', data: analyticsData });
+            } catch (error) {
+                console.error('Daily impressions unique API Error:', error);
+                errors.push({ type: 'page_impressions_unique', error });
+            }
+
+            try {          
+                const response = await axios.get(
+                    `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                    {
+                        params: {
+                            metric: 'page_views_total',
+                            period: 'day',
+                            access_token: page.page_access_token,
+                            since: timestampSince,
+                            until: timestampUntil
+                        }
+                    }
+                ); 
+                const page_views_total = response.data;
+                page_views_total.page_id = page.id;
+                page_views_total.loggedUser_uuid = loggedUser_uuid;
+                responses.push({ analytic_type: 'page_views_total', data: page_views_total });
+            } catch (error) {
+                console.error('Daily page_views_total API Error:', error);
+                errors.push({ type: 'page_views_total', error });
+            }
+
+            try {
+                const response = await axios.get(
+                    `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                    {
+                        params: {
+                            metric: 'page_post_engagements',
+                            period: 'day',
+                            access_token: page.page_access_token,
+                            since: timestampSince, 
+                            until: timestampUntil 
+                        }
+                    }
+                );
+                const page_post_engagements = response.data;
+                page_post_engagements.page_id = page.id;
+                page_post_engagements.loggedUser_uuid = loggedUser_uuid;
+                responses.push({ analytic_type: 'page_post_engagements', data: page_post_engagements });
+            } catch (error) {
+                console.error('API Error:', error.response?.data || error.message);
+            }
+
+            try {
+                const response = await axios.get(
+                    `https://graph.facebook.com/v22.0/${page.id}/insights`,
+                    {
+                        params: {
+                            metric: 'page_actions_post_reactions_like_total',
+                            period: 'day',
+                            access_token: page.page_access_token,
+                            since: timestampSince, 
+                            until: timestampUntil 
+                        }
+                    }
+                );
+                const page_actions_post_reactions_like_total = response.data;
+                page_actions_post_reactions_like_total.page_id = page.id;
+                page_actions_post_reactions_like_total.loggedUser_uuid = loggedUser_uuid;
+                responses.push({ analytic_type: 'page_actions_post_reactions_like_total', data: page_actions_post_reactions_like_total });           
+            } catch (error) {
+                console.error('API Error:', error.response?.data || error.message);
+            }
+        } 
+        
+        if (errors.length > 0) {        
+            const errorMessage = errors.map(e => `${e.type}: ${e.error.message}`).join('\n');
+            throw new Error(`Some analytics failed:\n${errorMessage}`);
+        } else {
+            await saveAnalyticsData(responses);
+        } 
+    }   
 }
 
 async function saveAnalyticsData(analyticsData) {
@@ -727,229 +1754,6 @@ async function saveAnalyticsData(analyticsData) {
     }
 }
 
-async function getPagePosts(pagesDetailList, user_social_id, loggedUser_uuid, retries = 3, delay = 2000) {
-    setImmediate(async () => {
-        let attempt = 0;
-        while (attempt < retries) {
-            try {
-                console.log(`Attempt ${attempt + 1} to sync page posts`);
-                await fetchPagesPosts(pagesDetailList, user_social_id, loggedUser_uuid);
-                console.log('Background page posts sync completed.');
-                break;
-            } catch (err) {
-                console.error(`Sync failed on attempt ${attempt + 1}:`, err.message || err);
-                attempt++;
-                if (attempt < retries) {
-                    await new Promise(res => setTimeout(res, delay)); // wait before retry
-                } else {
-                    console.error(' All retry attempts failed for page posts.');
-                }
-            }
-        }
-    });
-}
-
-async function fetchPagesPosts(pagesData, loggedUser_uuid, user_social_id) {
-    const today = new Date();
-    const untilDate = new Date(today);
-    untilDate.setDate(today.getDate() - 1);
-    const sinceDate = new Date(untilDate);
-    sinceDate.setDate(untilDate.getDate() - 90);
-    const timestampUntil = Math.floor(untilDate.getTime() / 1000);
-    const timestampSince = Math.floor(sinceDate.getTime() / 1000);
-    for (const page of pagesData) {
-        try {
-            const facebookRes = await axios.get(`https://graph.facebook.com/v22.0/${page.id}/posts`, {
-                params: {
-                    access_token: page.page_access_token,
-                    fields: 'id,message,created_time,insights.metric(post_impressions,post_impressions_unique),likes.summary(true),comments.summary(true){id,from,message,created_time,comments{id,from,message,created_time}},shares,attachments',
-                    since: timestampSince,
-                    until: timestampUntil,
-                },
-            });
-            const posts = facebookRes.data.data || [];
-            const fullData = [];
-            for (const post of posts) {
-                if (!post?.id) continue;
-                const createdEpoch = new Date(post.created_time).getTime() / 1000;
-                if (createdEpoch >= timestampSince && createdEpoch <= timestampUntil) {
-                    const likesCount = post.likes?.summary?.total_count || 0;
-                    const commentsCount = post.comments?.summary?.total_count || 0;
-                    const sharesCount = post.shares?.count || 0;
-                    const engagements = sharesCount
-                        ? likesCount + commentsCount + sharesCount / 3
-                        : likesCount + commentsCount / 2;
-                    const impressions =  post.insights?.data?.[0]?.values?.[0]?.value || 0;
-                    const unique_impressions =  post.insights?.data?.[1]?.values?.[0]?.value || 0;
-                    const formId = crypto.randomUUID();
-                    const record = {
-                        user_uuid: loggedUser_uuid,
-                        social_user_id: user_social_id,
-                        page_id: page.id,
-                        content: post.message || '',
-                        schedule_time: null,
-                        post_media: post.attachments?.data?.[0]?.media?.image?.src || null,
-                        platform_post_id: post.id,
-                        post_platform: "facebook",
-                        source: "API",
-                        form_id: formId,
-                        likes: likesCount,
-                        comments: commentsCount,
-                        shares: sharesCount,
-                        engagements: engagements || 0,
-                        impressions: impressions || 0,
-                        unique_impressions: unique_impressions || 0,
-                        week_date: new Date(post.created_time).toISOString().split("T")[0],
-                        status: "1"
-                    };
-                    fullData.push(record);
-                }
-            }
-            for (const record of fullData) {
-                if (record.platform_post_id) {
-                    const existing = await UserPost.findOne({
-                        where: {
-                            platform_post_id: record.platform_post_id,
-                            user_uuid: record.user_uuid,
-                            page_id: record.page_id
-                        }
-                    });
-                    if (existing) {
-                        const { source, ...updatePayload } = record;
-                        await existing.update(updatePayload);
-                    } else {
-                        await UserPost.create(record);
-                    }
-                }
-            }
-        } catch (err) {
-            console.error("Facebook Weekly Posts fetch error:", err.response?.data || err.message);
-            continue;
-        }
-    }
-}
-
-async function getPagePostsComments(pagesDetailList, user_social_id, loggedUser_uuid, retries = 3, delay = 2000) {
-    setImmediate(async () => {
-        let attempt = 0;
-        while (attempt < retries) {
-            try {
-                console.log(`Attempt ${attempt + 1} to sync page posts comments`);
-                await fetchPagesPostsComments(pagesDetailList, user_social_id, loggedUser_uuid);
-                console.log('Background page posts comments sync completed.');
-                break;
-            } catch (err) {
-                console.error(`Sync failed on attempt ${attempt + 1}:`, err.message || err);
-                attempt++;
-                if (attempt < retries) {
-                    await new Promise(res => setTimeout(res, delay)); // wait before retry
-                } else {
-                    console.error(' All retry attempts failed for page posts comments.');
-                }
-            }
-        }
-    });
-}
-
-async function fetchPagesPostsComments(pagesData, loggedUser_uuid, user_social_id) {
-    const today = new Date();
-    const untilDate = new Date(today);
-    untilDate.setDate(today.getDate() - 1);
-    const sinceDate = new Date(untilDate);
-    sinceDate.setDate(untilDate.getDate() - 90);
-
-    const timestampUntil = Math.floor(untilDate.getTime() / 1000);
-    const timestampSince = Math.floor(sinceDate.getTime() / 1000);
-    const allComments = [];
-    for (const page of pagesData) {
-        try {
-            const url = new URL(`https://graph.facebook.com/v22.0/${page.id}/posts`);
-            url.search = new URLSearchParams({
-                fields: 'id,likes.summary(true),comments.limit(50).order(reverse_chronological).summary(true){created_time,message,from,likes.summary(true),comments{created_time,message,from,likes.summary(true),comments{created_time,message,from,likes.summary(true)}}}',
-                access_token: page.page_access_token,
-                //limit: 25,
-                since: timestampSince,
-                until: timestampUntil
-            });           
-
-            const response = await fetch(url.toString());
-            const result = await response.json();
-            let posts = result.data;
-            const postsWithComments = posts.filter(
-                post => post.comments?.summary?.total_count > 0
-            );
-
-            function flattenCommentTree(comment, parentCommentId = null, postMetadata = {}, level = 0) {
-                const flat = [];
-                const current = {
-                    ...postMetadata,
-                    comment_id: comment.id,
-                    parent_comment_id: parentCommentId,
-                    from_id: comment.from?.id || null,
-                    from_name: comment.from?.name || null,
-                    comment: comment.message || '',
-                    comment_created_time: comment.created_time,
-                    comment_type: parentCommentId ? 'reply' : 'top_level',
-                };
-                flat.push(current);
-                if (comment.comments?.data?.length > 0) {
-                    for (const reply of comment.comments.data) {
-                        flat.push(...flattenCommentTree(reply, comment.id, postMetadata, level + 1));
-                    }
-                }
-                return flat;
-            }
-
-            for (const post of postsWithComments) {
-                const postMetadata = {
-                    user_uuid: loggedUser_uuid,
-                    social_userid: user_social_id,
-                    platform_page_Id: page.id,
-                    platform: 'facebook',
-                    post_id: post.id
-                };
-                const topComments = post.comments?.data || [];
-                for (const comment of topComments) {
-                    const flattenedComments = flattenCommentTree(comment, null, postMetadata);
-                    allComments.push(...flattenedComments);
-                }
-            }
-
-        } catch (err) {
-            console.error("Facebook Weekly Posts fetch error:", err.response?.data || err.message);
-            continue;
-        }
-    }
-
-    // Remove duplicates using comment_id
-    const uniqueComments = new Map();
-    for (const item of allComments) {
-        if (!uniqueComments.has(item.comment_id)) {
-            uniqueComments.set(item.comment_id, item);
-        }
-    }
-
-    // Save unique comments to DB (skip duplicates already saved)
-    for (const commentData of uniqueComments.values()) {
-        try {
-            const existing = await PostComments.findOne({
-                where: { comment_id: commentData.comment_id }
-            });
-
-            if (!existing) {
-                await PostComments.create(commentData);
-            }
-        } catch (err) {
-            console.error('Error saving comment to DB:', {
-                comment_id: commentData.comment_id,
-                error: err.message || err
-            });
-            continue; // Skip this comment and continue with the next
-        }
-    }
-
-}
-
 async function fetchFacebookPageChat(pagesDetailList, user_social_id, loggedUser_uuid, retries = 3, delay = 2000) {
     setImmediate(async () => {
         let attempt = 0;
@@ -976,60 +1780,251 @@ async function fetchFacebookPageChat(pagesData, loggedUser_uuid, user_social_id)
     // console.log('pagesData', pagesData);
     // console.log('loggedUser_uuid', loggedUser_uuid);
     // console.log('user_social_id', user_social_id);
-    for (const page of pagesData) {
+
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const activityRecord = await Activity.findAll({
+        where: {
+            user_uuid: loggedUser_uuid,
+            account_social_userid: user_social_id,
+            activity_type: "social",
+            activity_subType: "account",
+            action: "disconnect",            
+        },
+        order: [['id', 'DESC']], // get the latest one
+        raw: true,
+    });
+
+    if (activityRecord && activityRecord.length > 0) {
+        const lastRow = activityRecord[0];
+        const activityDate = new Date(lastRow.activity_dateTime).toISOString().slice(0, 10);  
+
+        let disconnectedPages = [];
         try {
-            const fbConvoRes = await axios.get(
-                `https://graph.facebook.com/v22.0/${page.id}/conversations`,
-                { params: 
-                    { fields: 
-                        'id,senders,updated_time,snippet,unread_count', 
-                        access_token: page.page_access_token 
-                    } 
-                }                
-            );
-            for (const convo of fbConvoRes.data.data) {
-                const other = convo.senders.data.find(s => s.id !== page.id) || {};
-                const convoRow = await InboxConversations.findOrCreate({
-                    where: { conversation_id: convo.id },
-                    defaults: {
-                        user_uuid        : loggedUser_uuid,
-                        social_userid    : user_social_id,
-                        social_pageid    : page.id,
-                        social_platform  : 'facebook',
-                        external_userid  : other.id || 'NA',
-                        external_username: other.name || null,
-                        snippet          : convo.snippet || '',
-                        //unreaded_messages: convo.unread_count,
-                        status           : 'Active'
-                    }
-                }).then(([row]) => row);
-                /* update snippet / unread every sync */
-                await convoRow.update({
-                    snippet          : convo.snippet || '',
-                    unreaded_messages: convo.unread_count,
-                    updatedAt        : new Date()
-                });
-                /* pull messages → upsert */
-                const fbMsgRes = await axios.get(
-                    `https://graph.facebook.com/v22.0/${convo.id}/messages`,
-                    { params: { fields: 'id,message,from,created_time', access_token: page.page_access_token } }
-                );
-                for (const m of fbMsgRes.data.data) {
-                    await InboxMessages.findOrCreate({
-                        where: { platform_message_id: m.id },
-                        defaults: {
-                            conversation_id    : convo.id,
-                            sender_type        : m.from?.id === page.id ? 'page' : 'visitor',
-                            message_text       : m.message || '',
-                            message_type       : 'text',
-                            timestamp          : m.created_time
+            const refData = JSON.parse(lastRow.reference_pageID || "{}");
+            disconnectedPages = refData?.activity_subType_id?.pages || [];
+        } catch (err) {
+            console.error("Invalid JSON in reference_pageID:", err);
+        }
+
+        const activityPrevDateObj = new Date(activityDate);
+        activityPrevDateObj.setDate(activityPrevDateObj.getDate() - 1);
+        const activityPrevDate = activityPrevDateObj.toISOString().slice(0, 10);
+
+        const matchedPages = pagesData.filter(page => disconnectedPages.includes(page.id));        
+        const uniquePages = pagesData.filter(page => !disconnectedPages.includes(page.id));
+
+        if(matchedPages.length > 0){
+            const untilDate = new Date(todayDate);
+            const sinceDate = new Date(activityPrevDate);
+            const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+            const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+
+            for (const page of matchedPages) {
+                try {
+                    const fbConvoRes = await axios.get(
+                        `https://graph.facebook.com/v22.0/${page.id}/conversations`,
+                        {
+                            params: {
+                                fields: 'id,senders,updated_time,snippet,unread_count',
+                                since: timestampSince,
+                                until: timestampUntil,
+                                access_token: page.page_access_token,
+                            },
                         }
-                    });
+                    );
+
+                    for (const convo of fbConvoRes.data.data) {
+                        const other = convo.senders.data.find(s => s.id !== page.id) || {};
+                        const convoRow = await InboxConversations.findOrCreate({
+                            where: { conversation_id: convo.id },
+                            defaults: {
+                                user_uuid        : loggedUser_uuid,
+                                social_userid    : user_social_id,
+                                social_pageid    : page.id,
+                                social_platform  : 'facebook',
+                                external_userid  : other.id || 'NA',
+                                external_username: other.name || null,
+                                snippet          : convo.snippet || '',
+                                //unreaded_messages: convo.unread_count,
+                                status           : 'Active'
+                            }
+                        }).then(([row]) => row);
+                        /* update snippet / unread every sync */
+                        await convoRow.update({
+                            snippet          : convo.snippet || '',
+                            unreaded_messages: convo.unread_count,
+                            updatedAt        : new Date()
+                        });
+                        /* pull messages → upsert */
+                        const fbMsgRes = await axios.get(
+                            `https://graph.facebook.com/v22.0/${convo.id}/messages`,
+                            { params: { fields: 'id,message,from,created_time', access_token: page.page_access_token } }
+                        );
+                        for (const m of fbMsgRes.data.data) {
+                            await InboxMessages.findOrCreate({
+                                where: { platform_message_id: m.id },
+                                defaults: {
+                                    conversation_id    : convo.id,
+                                    sender_type        : m.from?.id === page.id ? 'page' : 'visitor',
+                                    message_text       : m.message || '',
+                                    message_type       : 'text',
+                                    timestamp          : m.created_time
+                                }
+                            });
+                        }
+                    }
+                } catch (syncErr) {
+                    console.error(`:x: Sync error for page ${page.id}:`, syncErr.response?.data || syncErr.message);
+                    continue;
                 }
             }
-        } catch (syncErr) {
-            console.error(`:x: Sync error for page ${page.id}:`, syncErr.response?.data || syncErr.message);
-            continue;
+
+            if(uniquePages.length > 0){
+                const today = new Date();
+                const untilDate = new Date(today);
+                untilDate.setDate(today.getDate() - 1);
+                const sinceDate = new Date(untilDate);
+                sinceDate.setDate(untilDate.getDate() - 90);
+                const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+                const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+
+                for (const page of uniquePages) {
+                    try {
+                        const fbConvoRes = await axios.get(
+                            `https://graph.facebook.com/v22.0/${page.id}/conversations`,
+                            {
+                                params: {
+                                    fields: 'id,senders,updated_time,snippet,unread_count',
+                                    since: timestampSince,
+                                    until: timestampUntil,
+                                    access_token: page.page_access_token,
+                                },
+                            }
+                        );                        
+                        for (const convo of fbConvoRes.data.data) {
+                            const other = convo.senders.data.find(s => s.id !== page.id) || {};
+                            const convoRow = await InboxConversations.findOrCreate({
+                                where: { conversation_id: convo.id },
+                                defaults: {
+                                    user_uuid        : loggedUser_uuid,
+                                    social_userid    : user_social_id,
+                                    social_pageid    : page.id,
+                                    social_platform  : 'facebook',
+                                    external_userid  : other.id || 'NA',
+                                    external_username: other.name || null,
+                                    snippet          : convo.snippet || '',
+                                    //unreaded_messages: convo.unread_count,
+                                    status           : 'Active'
+                                }
+                            }).then(([row]) => row);
+                            /* update snippet / unread every sync */
+                            await convoRow.update({
+                                snippet          : convo.snippet || '',
+                                unreaded_messages: convo.unread_count,
+                                updatedAt        : new Date()
+                            });
+                            /* pull messages → upsert */
+                            const fbMsgRes = await axios.get(
+                                `https://graph.facebook.com/v22.0/${convo.id}/messages`,
+                                { params: { fields: 'id,message,from,created_time', access_token: page.page_access_token } }
+                            );
+                            for (const m of fbMsgRes.data.data) {
+                                await InboxMessages.findOrCreate({
+                                    where: { platform_message_id: m.id },
+                                    defaults: {
+                                        conversation_id    : convo.id,
+                                        sender_type        : m.from?.id === page.id ? 'page' : 'visitor',
+                                        message_text       : m.message || '',
+                                        message_type       : 'text',
+                                        timestamp          : m.created_time
+                                    }
+                                });
+                            }
+                        }
+                    } catch (syncErr) {
+                        console.error(`:x: Sync error for page ${page.id}:`, syncErr.response?.data || syncErr.message);
+                        continue;
+                    }
+                }
+            }
+
+        }
+
+    } else {
+        const today = new Date();
+        const untilDate = new Date(today);
+        untilDate.setDate(today.getDate() - 1);
+        const sinceDate = new Date(untilDate);
+        sinceDate.setDate(untilDate.getDate() - 90);
+        const timestampUntil = Math.floor(untilDate.getTime() / 1000);
+        const timestampSince = Math.floor(sinceDate.getTime() / 1000);
+
+        for (const page of pagesData) {
+            try {
+                const fbConvoRes = await axios.get(
+                    `https://graph.facebook.com/v22.0/${page.id}/conversations`,
+                    {
+                        params: {
+                            fields: 'id,senders,updated_time,snippet,unread_count',
+                            since: timestampSince,
+                            until: timestampUntil,
+                            access_token: page.page_access_token,
+                        },
+                    }
+                );
+                // const fbConvoRes = await axios.get(
+                //     `https://graph.facebook.com/v22.0/${page.id}/conversations`,
+                //     { params: 
+                //         { fields: 
+                //             'id,senders,updated_time,snippet,unread_count', 
+                //             access_token: page.page_access_token 
+                //         } 
+                //     }                
+                // );
+                for (const convo of fbConvoRes.data.data) {
+                    const other = convo.senders.data.find(s => s.id !== page.id) || {};
+                    const convoRow = await InboxConversations.findOrCreate({
+                        where: { conversation_id: convo.id },
+                        defaults: {
+                            user_uuid        : loggedUser_uuid,
+                            social_userid    : user_social_id,
+                            social_pageid    : page.id,
+                            social_platform  : 'facebook',
+                            external_userid  : other.id || 'NA',
+                            external_username: other.name || null,
+                            snippet          : convo.snippet || '',
+                            //unreaded_messages: convo.unread_count,
+                            status           : 'Active'
+                        }
+                    }).then(([row]) => row);
+                    /* update snippet / unread every sync */
+                    await convoRow.update({
+                        snippet          : convo.snippet || '',
+                        unreaded_messages: convo.unread_count,
+                        updatedAt        : new Date()
+                    });
+                    /* pull messages → upsert */
+                    const fbMsgRes = await axios.get(
+                        `https://graph.facebook.com/v22.0/${convo.id}/messages`,
+                        { params: { fields: 'id,message,from,created_time', access_token: page.page_access_token } }
+                    );
+                    for (const m of fbMsgRes.data.data) {
+                        await InboxMessages.findOrCreate({
+                            where: { platform_message_id: m.id },
+                            defaults: {
+                                conversation_id    : convo.id,
+                                sender_type        : m.from?.id === page.id ? 'page' : 'visitor',
+                                message_text       : m.message || '',
+                                message_type       : 'text',
+                                timestamp          : m.created_time
+                            }
+                        });
+                    }
+                }
+            } catch (syncErr) {
+                console.error(`:x: Sync error for page ${page.id}:`, syncErr.response?.data || syncErr.message);
+                continue;
+            }
         }
     }
 }

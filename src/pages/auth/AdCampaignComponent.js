@@ -732,7 +732,7 @@ export default function AdCampaignComponent() {
                                             <div className="col-md-6">
                                                 <h1 className='h1-heading'>Ads Campaigns </h1>
                                             </div>
-                                            <div className="col-md-6">
+                                            <div className="col-7 col-md-6">
                                                 {/* <div className="row">
                                                     <div className="col-md-6">
                                                      
@@ -875,8 +875,8 @@ export default function AdCampaignComponent() {
                                                         </div>
                                                     </div>
                                                 </div> */}
-                                                <div className='d-flex justify-content-end'> 
-                                                <button type="button" className="btn btn-hover-effect btn-primary 
+                                                <div className='d-flex justify-content-start justify-content-sm-end'> 
+                                                <button type="button" className="btn btn-hover-effect btn-primary my-lg-3 
                                                             d-flex align-items-center justify-content-center"
                                                             onClick={() => setShowCreateAdsModal(true)}
                                                         >
@@ -1128,156 +1128,150 @@ export default function AdCampaignComponent() {
                                                                             acc.social_id === selectedPlatform.social_id &&
                                                                             acc.AdsAccounts?.some(ad => ad.isConnected === 'Connected')
                                                                         )) && (
-                                                                                <li className="p-2 text-danger">No Connected Ad Accounts for this account</li>
-                                                                            )}
+                                                                            <li className="p-2 text-danger">No Connected Ad Accounts for this account</li>
+                                                                        )}
 
                                                                     </ul>
                                                                 </div>
                                                             )}
                                                         </div>
                                                     </div>
-
                                                 </div>
 
-                                                   {/* Ads Campaigns          */}
-                                                <div className='card card-body mt-4'> 
-                                                     {selectedAdPlatform ? (
-                                                        
-                                                    <div className=''>
+                                                {/* Ads Campaigns */}
+                                                
+                                                {selectedAdPlatform ? (                                                        
+                                                    <div className='mt-4'>
                                                         <div className='d-flex align-items-center justify-content-between'> 
-                                                        <h6 className="text-dark mb-2"><strong>Ads Account Details</strong></h6>
-                                                        <div class="d-inline-flex align-items-center rounded-pill green-badge  fw-semibold small px-3"> Active </div>
+                                                            <h6 className="text-dark mb-2"><strong>Ads Account Details</strong></h6>
+                                                            <div class="d-inline-flex align-items-center rounded-pill green-badge  fw-semibold small px-3"> Active </div>
                                                         </div>
-
-
-                                                        <div className="d-flex align-items-center gap-2">
+                                                        <div className="d-flex align-items-center gap-2 mobile-responsive">
                                                             <small><b>ID:</b> {selectedAdPlatform.account_id}</small>
                                                             <small><b>TimeZone:</b> {selectedAdPlatform.timezone} </small>
                                                             <small><b>Currency:</b> {selectedAdPlatform.currency}</small>
                                                         </div>
-                                                     </div>
-                                                   
+                                                    </div>                                                   
                                                 ) : (
-                                                    <div className='col-md-6'>
-                                                        <h6 className="mb-2"><strong>Ads Account Details</strong></h6>
-                                                        <div className="d-flex align-items-center gap-2">
-                                                            <small>ID: </small>
-                                                            <small>TimeZone: </small>
-                                                            <small>Currency: </small>
-                                                        </div>
-                                                    </div>
+                                                    <>                                                        
+                                                    </>
                                                 )}
 
-                                                 {selectedAdPlatform ? (
-                                                    <div className="col-md-12">
-                                                        <div class="row">
-                                                            <div className="col-md-6">
-                                                                <div className="row mt-2">
-                                                                    {/* Total Spend */}
-                                                                    <div className="col-md-12 mb-2">
-                                                                        <div className="d-flex justify-content-between">
-                                                                            <p className="mb-0">This Ad Account has spent a total of&nbsp;
-                                                                                <span className="fw-bold">
-                                                                                    {formatCurrency(
-                                                                                        parseFloat(selectedAdPlatform.amount_spent || 0) / 100,
-                                                                                        selectedAdPlatform.currency || 'USD'
-                                                                                    )}
-                                                                                </span>
-                                                                            </p>
-                                                                            <span><small>{percentSpent.toFixed(1)}%</small></span>
-                                                                        </div>
+                                                {selectedAdPlatform ? (
+                                                    <div className='card card-body mt-4'> 
+                                                        <div className="col-md-12">
+                                                            <div class="row">
+                                                                <div className="col-md-6">
+                                                                    <div className="row mt-2">
+                                                                        {/* Total Spend */}
+                                                                        <div className="col-md-12 mb-2">
+                                                                            <div className="d-flex justify-content-between">
+                                                                                <p className="mb-0">This Ad Account has spent a total of&nbsp;
+                                                                                    <span className="fw-bold">
+                                                                                        {formatCurrency(
+                                                                                            parseFloat(selectedAdPlatform.amount_spent || 0) / 100,
+                                                                                            selectedAdPlatform.currency || 'USD'
+                                                                                        )}
+                                                                                    </span>
+                                                                                </p>
+                                                                                <span><small>{percentSpent.toFixed(1)}%</small></span>
+                                                                            </div>
 
-                                                                        <div className="progress" style={{ height: '12px', width: '100%' }}>
-                                                                            <div
-                                                                                className={`progress-bar ${selectedAdPlatform.spend_cap === '0' || selectedAdPlatform.spend_cap === 0 ? '' : 'bg-warning'}`}
-                                                                                role="progressbar"
-                                                                                style={{
-                                                                                    width:
-                                                                                        selectedAdPlatform.spend_cap === '0' || selectedAdPlatform.spend_cap === 0
-                                                                                            ? '0%'
-                                                                                            : `${percentSpent?.toFixed(1) || 0}%`
-                                                                                }}
-                                                                                aria-valuenow={percentSpent}
-                                                                                aria-valuemin="0"
-                                                                                aria-valuemax="100"
-                                                                            ></div>
-                                                                        </div>
-                                                                        {selectedAdPlatform.spend_cap === '0' || selectedAdPlatform.spend_cap === 0 ? (
-                                                                            <small className="text-muted">No spending limit is set</small>
-                                                                        ) : selectedAdPlatform.amount_spent >= selectedAdPlatform.spend_cap ? (
-                                                                            <small className="text-danger">This ad account is reached to it's spending limit.</small>
-                                                                        ) : (
-                                                                            <small className="text-muted">{percentSpent.toFixed(1)}% of spend limit used</small>
-                                                                        )}
-                                                                    </div>
-
-                                                                    {/* Balance */}
-                                                                    <div className="col-md-12">
-                                                                        <p className="mb-0 d-flex align-items-center">
-                                                                            Balance:&nbsp;
-                                                                            <span className={`fw-bold ${parseFloat(selectedAdPlatform?.balance || 0) / 100 < 100 ? 'text-danger' : ''
-                                                                                }`}
-                                                                            >
-                                                                                {selectedAdPlatform.balance > 0 ?
-                                                                                    formatCurrency(parseFloat(selectedAdPlatform.balance) / 100, selectedAdPlatform.currency || 'USD') :
-                                                                                    formatCurrency(0, selectedAdPlatform.currency || 'USD')
-                                                                                }
-                                                                            </span>
-
-                                                                            {/* Low Balance Badge */}
-                                                                            {parseFloat(selectedAdPlatform?.balance) / 100 < 100 && selectedAdPlatform?.balance != 0 ? (
-                                                                                <span className="badge bg-danger text-white ms-2">Low Balance</span>
+                                                                            <div className="progress" style={{ height: '12px', width: '100%' }}>
+                                                                                <div
+                                                                                    className={`progress-bar ${selectedAdPlatform.spend_cap === '0' || selectedAdPlatform.spend_cap === 0 ? '' : 'bg-warning'}`}
+                                                                                    role="progressbar"
+                                                                                    style={{
+                                                                                        width:
+                                                                                            selectedAdPlatform.spend_cap === '0' || selectedAdPlatform.spend_cap === 0
+                                                                                                ? '0%'
+                                                                                                : `${percentSpent?.toFixed(1) || 0}%`
+                                                                                    }}
+                                                                                    aria-valuenow={percentSpent}
+                                                                                    aria-valuemin="0"
+                                                                                    aria-valuemax="100"
+                                                                                ></div>
+                                                                            </div>
+                                                                            {selectedAdPlatform.spend_cap === '0' || selectedAdPlatform.spend_cap === 0 ? (
+                                                                                <small className="text-muted">No spending limit is set</small>
+                                                                            ) : selectedAdPlatform.amount_spent >= selectedAdPlatform.spend_cap ? (
+                                                                                <small className="text-danger">This ad account is reached to it's spending limit.</small>
                                                                             ) : (
-                                                                                <span className="badge bg-danger text-white ms-2">Fund Required</span>
+                                                                                <small className="text-muted">{percentSpent.toFixed(1)}% of spend limit used</small>
                                                                             )}
-                                                                        </p>
-                                                                    </div>
-
-                                                                </div>
-                                                            </div>
-                                                            <div className="col-md-6"> </div>
-                                                            <div className="col-md-12 mt-3">
-                                                                {showWarning && (
-                                                                    <div className="alert alert-warning alert-dismissible fade show" role="alert" style={{ padding: "5px 15px" }}>
-                                                                        <i class="fa-solid fa-circle-exclamation my-auto p-2"
-                                                                            style={{
-                                                                                background: 'goldenrod',
-                                                                                borderRadius: '50%'
-                                                                            }}>
-                                                                        </i>
-                                                                        <div>
-                                                                            <span><strong>Warning:</strong> This account has reached 80% of it's spending limit.</span>
-                                                                            <span><small>The Ad Campiagns will get paused until you raise(or remove) your spending limit. </small></span>
                                                                         </div>
-                                                                        <button type="button" className="btn-close" onClick={() => setShowWarning(false)} ></button>
-                                                                    </div>
-                                                                )}
 
-                                                                {showDanger && (
-                                                                    <div className="alert alert-danger alert-dismissible fade show" role="alert" style={{ padding: "5px 15px" }}>
-                                                                        <div className="d-flex gap-3">
-                                                                            <i class="fas fa-exclamation-triangle my-auto p-2"
+                                                                        {/* Balance */}
+                                                                        <div className="col-md-12">
+                                                                            <p className="mb-0 d-flex align-items-center">
+                                                                                Balance:&nbsp;
+                                                                                <span className={`fw-bold ${parseFloat(selectedAdPlatform?.balance || 0) / 100 < 100 ? 'text-danger' : ''
+                                                                                    }`}
+                                                                                >
+                                                                                    {selectedAdPlatform.balance > 0 ?
+                                                                                        formatCurrency(parseFloat(selectedAdPlatform.balance) / 100, selectedAdPlatform.currency || 'USD') :
+                                                                                        formatCurrency(0, selectedAdPlatform.currency || 'USD')
+                                                                                    }
+                                                                                </span>
+
+                                                                                {/* Low Balance Badge */}
+                                                                                {parseFloat(selectedAdPlatform?.balance) / 100 < 100 && selectedAdPlatform?.balance != 0 ? (
+                                                                                    <span className="badge bg-danger text-white ms-2">Low Balance</span>
+                                                                                ) : (
+                                                                                    <span className="badge bg-danger text-white ms-2">Fund Required</span>
+                                                                                )}
+                                                                            </p>
+                                                                        </div>
+
+                                                                    </div>
+                                                                </div>
+                                                                <div className="col-md-6"> </div>
+                                                                <div className="col-md-12 mt-3">
+                                                                    {showWarning && (
+                                                                        <div className="alert alert-warning alert-dismissible fade show" role="alert" style={{ padding: "5px 15px" }}>
+                                                                            <i class="fa-solid fa-circle-exclamation my-auto p-2"
                                                                                 style={{
-                                                                                    background: 'red',
+                                                                                    background: 'goldenrod',
                                                                                     borderRadius: '50%'
                                                                                 }}>
                                                                             </i>
                                                                             <div>
-                                                                                <span><strong>Alert:</strong> This account has reached to its spending limit.</span>
-                                                                                <span><small>This ad account has been reached to its spending limit. Ad Campiagns won't resume until you raise(or remove) your spending limit. </small></span>
+                                                                                <span><strong>Warning:</strong> This account has reached 80% of it's spending limit.</span>
+                                                                                <span><small>The Ad Campiagns will get paused until you raise(or remove) your spending limit. </small></span>
                                                                             </div>
+                                                                            <button type="button" className="btn-close" onClick={() => setShowWarning(false)} ></button>
                                                                         </div>
-                                                                        <button type="button" className="btn-close my-auto" onClick={() => setShowDanger(false)} ></button>
-                                                                    </div>
-                                                                )}
+                                                                    )}
+
+                                                                    {showDanger && (
+                                                                        <div className="alert alert-danger alert-dismissible fade show" role="alert" style={{ padding: "5px 15px" }}>
+                                                                            <div className="d-flex gap-3">
+                                                                                <i class="fas fa-exclamation-triangle my-auto p-2"
+                                                                                    style={{
+                                                                                        background: 'red',
+                                                                                        borderRadius: '50%'
+                                                                                    }}>
+                                                                                </i>
+                                                                                <div>
+                                                                                    <span><strong>Alert:</strong> This account has reached to its spending limit.</span>
+                                                                                    <span><small>This ad account has been reached to its spending limit. Ad Campiagns won't resume until you raise(or remove) your spending limit. </small></span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <button type="button" className="btn-close my-auto" onClick={() => setShowDanger(false)} ></button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div className="col-md-12"></div>
+                                                    // <div className='card card-body mt-4'>
+                                                    //     <div className="col-md-12"></div>
+                                                    // </div>
+                                                    <></>
                                                 )}
-                                                </div>
-                                                {/* Ads Campaigns  end*/}
+                                                
+                                            {/* Ads Campaigns  end*/}
                                         </div>
                                     </div>
 
@@ -1462,13 +1456,13 @@ export default function AdCampaignComponent() {
                                                                 />
                                                             </div>
                                                             {actionMenu.visible && (
-                                                                <div className="dropdown-menu show"
+                                                                <div className="dropdown-menu show rounded-3 border-0 p-1"
                                                                     style={{
                                                                         position: 'fixed',
                                                                         top: actionMenu.y,
                                                                         left: actionMenu.x,
                                                                         zIndex: 9999,
-                                                                        minWidth: '160px',
+                                                                        minWidth: '110px',
                                                                         background: '#fff',
                                                                         border: '1px solid #ddd',
                                                                         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
@@ -1476,13 +1470,13 @@ export default function AdCampaignComponent() {
                                                                     onClick={(e) => e.stopPropagation()}
                                                                     onMouseLeave={closeActionMenu}
                                                                 >
-                                                                    <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); handleView(actionMenu.data) }}>
+                                                                    <button className="dropdown-item rounded-3 border-0 mb-1" onClick={(e) => { e.stopPropagation(); handleView(actionMenu.data) }}>
                                                                         <i className="fas fa-eye me-2"></i> &nbsp; View
                                                                     </button>
-                                                                    <button className="dropdown-item" onClick={() => handleEdit(actionMenu.data)}>
+                                                                    <button className="dropdown-item rounded-3 border-0 mb-1" onClick={() => handleEdit(actionMenu.data)}>
                                                                         <i className="fas fa-pencil me-2"></i> &nbsp; Edit
                                                                     </button>
-                                                                    <button className="dropdown-item text-danger" onClick={() => handleDelete(actionMenu.data)}>
+                                                                    <button className="dropdown-item rounded-3 border-0  text-danger" onClick={() => handleDelete(actionMenu.data)}>
                                                                         <i className="fas fa-trash me-2"></i> &nbsp; Delete
                                                                     </button>
                                                                 </div>

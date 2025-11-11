@@ -498,7 +498,7 @@ export default function AllConnectedAccount() {
                             <div className="col-12 col-sm-12 col-md-12">
                                 <div className="card">
                                     <div className="card-body">
-                                        <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                        <div className="d-flex align-items-center justify-content-between gap-2 mb-2 mobile-responsive">
                                             <div>
                                                 <h5 className="mb-2"> Social accounts </h5>
                                                 <p className="my-2"> These are the social accounts that only you can view and post to.</p>
@@ -570,61 +570,57 @@ export default function AllConnectedAccount() {
                                                                     <span className="position-absolute start-100 bottom-0 translate-middle-x rounded-circle d-flex align-items-center justify-content-center custom-ican-bg">
                                                                         {account.social_user_platform === 'facebook' ? (
                                                                             // <i className="fa-brands fa-facebook text-primary fs-5"></i> 
-                                                                            <div
-  className="platform-icon-custom me-2 mb-0 d-flex justify-content-center align-items-center rounded-circle"
-  style={{
-    background: "linear-gradient(135deg, rgb(37, 99, 235), rgb(30, 64, 175))",
-    width: "25px",
-    height: "25px"
-  }}
->
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="15"
-    height="15"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="text-white"
-  >
-    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7
-      a1 1 0 0 1 1-1h3z"></path>
-  </svg>
-</div>
+                                                                            <div className="platform-icon-custom me-2 mb-0 d-flex justify-content-center align-items-center rounded-circle"
+                                                                                style={{ background: "linear-gradient(135deg, rgb(37, 99, 235), rgb(30, 64, 175))",
+                                                                                    width: "25px", height: "25px" }}
+                                                                                >
+                                                                                <svg
+                                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                                    width="15"
+                                                                                    height="15"
+                                                                                    viewBox="0 0 24 24"
+                                                                                    fill="none"
+                                                                                    stroke="currentColor"
+                                                                                    strokeWidth="2"
+                                                                                    strokeLinecap="round"
+                                                                                    strokeLinejoin="round"
+                                                                                    className="text-white"
+                                                                                >
+                                                                                    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7
+                                                                                    a1 1 0 0 1 1-1h3z"></path>
+                                                                                </svg>
+                                                                                </div>
                                                                             
                                                                         ) : account.social_user_platform === 'instagram' ? (
                                                                             <i className="fa-brands fa-instagram text-primary fs-5"></i>
                                                                         ) : account.social_user_platform === 'linkedin' ? (
                                                                             // <i className="fa-brands fa-linkedin text-primary fs-5"></i>
-<div
-  className="platform-icon-custom me-2 mb-0 d-flex justify-content-center align-items-center rounded-circle"
-  style={{
-    background: "linear-gradient(135deg, rgb(37, 99, 235), rgb(30, 64, 175))",
-    width: "25px",
-    height: "25px"
-  }}
->
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="15"
-    height="15"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="text-white"
-  >
-    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4
-    0v7h-4v-7a6 6 0 0 1 6-6z"></path>
-    <rect x="2" y="9" width="4" height="12"></rect>
-    <circle cx="4" cy="4" r="2"></circle>
-  </svg>
-</div>
+                                                                            <div
+                                                                            className="platform-icon-custom me-2 mb-0 d-flex justify-content-center align-items-center rounded-circle"
+                                                                            style={{
+                                                                                background: "linear-gradient(135deg, rgb(37, 99, 235), rgb(30, 64, 175))",
+                                                                                width: "25px",
+                                                                                height: "25px"
+                                                                            }}
+                                                                            >
+                                                                            <svg
+                                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                                width="15"
+                                                                                height="15"
+                                                                                viewBox="0 0 24 24"
+                                                                                fill="none"
+                                                                                stroke="currentColor"
+                                                                                strokeWidth="2"
+                                                                                strokeLinecap="round"
+                                                                                strokeLinejoin="round"
+                                                                                className="text-white"
+                                                                            >
+                                                                                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4
+                                                                                0v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                                                                                <rect x="2" y="9" width="4" height="12"></rect>
+                                                                                <circle cx="4" cy="4" r="2"></circle>
+                                                                            </svg>
+                                                                            </div>
                                                                         ) : null}
                                                                     </span>
                                                                 </div>
@@ -642,8 +638,8 @@ export default function AllConnectedAccount() {
                                                                         {/* <i className="fa-solid fa-gear fs-5"></i> */}
                                                                         <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-dots-vertical"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M12 19m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M12 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg>
                                                                     </Dropdown.Toggle>
-                                                                    <Dropdown.Menu className="dropdown-menu-end">                                                                
-                                                                        <Dropdown.Item onClick={() => {
+                                                                    <Dropdown.Menu className="dropdown-menu-end p-2 rounded-3 border-0">                                                                
+                                                                        <Dropdown.Item className="rounded-3 border-0 mb-1" onClick={() => {
                                                                                 setSelectedAccount({
                                                                                     userId: account.user_id,
                                                                                     socialId: account.social_id,
@@ -658,33 +654,33 @@ export default function AllConnectedAccount() {
                                                                         {account.status === 'notConnected' ? (
                                                                             (() => {
                                                                                 if (account.social_user_platform === 'facebook') {
-                                                                                return (
-                                                                                    <Dropdown.Item>
-                                                                                    <FacebookLogin
-                                                                                        appId={FB_APP_ID}
-                                                                                        autoLoad={false}
-                                                                                        fields="name,email,picture,accounts"
-                                                                                        scope="pages_show_list,pages_manage_metadata,pages_read_engagement,pages_read_user_content,pages_manage_posts,pages_manage_engagement,read_insights,pages_messaging,ads_management,ads_read,business_management"
-                                                                                        callback={responseFacebook}
-                                                                                        render={renderProps => (
-                                                                                            <span onClick={renderProps.onClick} style={{cursor:'pointer'}} > <i className="fas fa-link"></i>Reconnect</span>
-                                                                                        )}
-                                                                                    />
-                                                                                    </Dropdown.Item>
-                                                                                );
+                                                                                    return (
+                                                                                        <Dropdown.Item className="rounded-3 border-0">
+                                                                                        <FacebookLogin
+                                                                                            appId={FB_APP_ID}
+                                                                                            autoLoad={false}
+                                                                                            fields="name,email,picture,accounts"
+                                                                                            scope="pages_show_list,pages_manage_metadata,pages_read_engagement,pages_read_user_content,pages_manage_posts,pages_manage_engagement,read_insights,pages_messaging,ads_management,ads_read,business_management"
+                                                                                            callback={responseFacebook}
+                                                                                            render={renderProps => (
+                                                                                                <span onClick={renderProps.onClick} style={{cursor:'pointer'}} > <i className="fas fa-link"></i>Reconnect</span>
+                                                                                            )}
+                                                                                        />
+                                                                                        </Dropdown.Item>
+                                                                                    );
                                                                                 } else if (account.social_user_platform === 'linkedin') {
-                                                                                return (
-                                                                                    <Dropdown.Item onClick={() => handleLogin()}>
-                                                                                    <i className="fas fa-link"></i> Reconnect
-                                                                                    </Dropdown.Item>
-                                                                                );
+                                                                                    return (
+                                                                                        <Dropdown.Item className="rounded-3 border-0 mb-1" onClick={() => handleLogin()}>
+                                                                                        <i className="fas fa-link"></i> Reconnect
+                                                                                        </Dropdown.Item>
+                                                                                    );
                                                                                 } else {
-                                                                                console.warn('Unknown platform:', account.social_user_platform);
-                                                                                return null;
+                                                                                    console.warn('Unknown platform:', account.social_user_platform);
+                                                                                    return null;
                                                                                 }
                                                                             })()
                                                                         ) : (
-                                                                            <Dropdown.Item onClick={() => {
+                                                                            <Dropdown.Item className="rounded-3 border-0 mb-1" onClick={() => {
                                                                                     if (account.social_user_platform === 'facebook') {
                                                                                         disconnectSocialAccount(account.social_id);
                                                                                     } else if (account.social_user_platform === 'linkedin') {
@@ -740,7 +736,7 @@ export default function AllConnectedAccount() {
                             <div className="col-12 col-md-12">
                                 <div className="card">
                                     <div className="card-body">
-                                        <div className="d-flex align-items-center justify-content-between gap-2">
+                                        <div className="d-flex align-items-center justify-content-between gap-2 mobile-responsive">
                                             <div>
                                                 <h5 className="mb-3">
                                                 {selectedAccount.accountName ? 
@@ -825,7 +821,7 @@ export default function AllConnectedAccount() {
                                                                     style={{
                                                                         background: "linear-gradient(to right, #2563eb, #1e40af)", // Tailwind's blue-600 → blue-800
                                                                     }} >
-                                                                    <svg  xmlns="http://www.w3.org/2000/svg"  width="24"   height="24"
+                                                                    <svg  xmlns="http://www.w3.org/2000/svg"  width="15"   height="15"
                                                                         viewBox="0 0 24 24"  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"  strokeLinejoin="round" className="text-white"
                                                                     >
                                                                         <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
@@ -841,7 +837,7 @@ export default function AllConnectedAccount() {
                                                                     background: "linear-gradient(to right, #3b82f6, #1d4ed8)", // Tailwind blue-500 → blue-700
                                                                 }}
                                                                 >
-                                                                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24" viewBox="0 0 24 24"
+                                                                <svg  xmlns="http://www.w3.org/2000/svg"  width="15"  height="15" viewBox="0 0 24 24"
                                                                     fill="none"  stroke="currentColor"  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"   className="text-white"
                                                                 >
                                                                     <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>

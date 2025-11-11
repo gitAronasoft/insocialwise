@@ -79,8 +79,8 @@ export default function Settings() {
     const [connectedSocialAccount, setconnectedSocialAccount] = useState(0);
     const [totalCreatedPost, settotalCreatedPost] = useState(0);
     const [loader, setLoader] = useState(false);
-
-    const [showMessageModal, setShowMessageModal] = useState(false);
+    const [showMessageModal, setShowMessageModal] = useState(false);  
+    const [activeKnowledgeBaseTotal, setactiveKnowledgeBaseTotal] = useState(0);
 
     useEffect(() => {
         const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
@@ -100,16 +100,23 @@ export default function Settings() {
                 }
                 const data = await response.json();
                 setSettingData(data.settingData);
-                // Set comment auto-reply status
-                if (data.settingData && data.settingData.module_name === 'Comment' && data.settingData.module_status === true) {
-                    setCommentAutoReplyEnabled(true);
+                if (Array.isArray(data.settingData)) {
+                    // Find Comment setting
+                    const commentSetting = data.settingData.find(
+                        (item) => item.module_name === "Comment"
+                    );
+                    setCommentAutoReplyEnabled(commentSetting?.module_status === true);
+                    // Find Message setting
+                    const messageSetting = data.settingData.find(
+                        (item) => item.module_name === "Message"
+                    );
+                    setactiveKnowledgeBaseTotal(data.knowledgeBaseCount);
+                    if(messageSetting?.module_status === true && data.knowledgeBaseCount>0){
+                        setMessageAutoReplyEnabled(messageSetting?.module_status === true);
+                    }                        
                 } else {
+                    // Default fallback if not an array
                     setCommentAutoReplyEnabled(false);
-                }
-                // Message Auto Reply
-                if (data.settingData && data.settingData.module_name === 'Message' && data.settingData.module_status === true) {
-                    setMessageAutoReplyEnabled(true);
-                } else {
                     setMessageAutoReplyEnabled(false);
                 }
             } catch (error) {
@@ -247,11 +254,16 @@ export default function Settings() {
     };
 
     const messageAutoreply = async () => {
-        setFullScreenLoader(true);
+        //setFullScreenLoader(true);
         const authToken = localStorage.getItem('authToken');
         const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
         const messageStatus = !isMessageAutoReplyEnabled;
         //console.log(messageStatus);
+        if(messageStatus===true && activeKnowledgeBaseTotal===0){
+            setShowMessageModal(true);
+        } else {
+            setShowMessageModal(false);
+        }
         try {    
             const messageResponse = await fetch(`${BACKEND_URL}/api/settings/system_auto_functions`, {
                 method: "POST",
@@ -260,32 +272,32 @@ export default function Settings() {
                     Authorization: "Bearer " + authToken,
                 },
                 body: JSON.stringify({
-                    module_name:'message',
+                    module_name:'Message',
                     module_status:messageStatus
                 }),
             });
             const response = await messageResponse.json();
             if(response.success===true){
                 setMessageAutoReplyEnabled(messageStatus);
-                setFullScreenLoader(false);
-                toast.success('Message auto-reply setting saved successfully.', {
-                    position: 'top-right',
-                    autoClose: 5000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                });
+                //setFullScreenLoader(false);
+                // toast.success('Message auto-reply setting saved successfully.', {
+                //     position: 'top-right',
+                //     autoClose: 5000,
+                //     hideProgressBar: false,
+                //     closeOnClick: true,
+                // });
             } else if(response.success===false){                
-                setFullScreenLoader(false);
-                toast.error('Internal server error.', {
-                    position: 'top-right',
-                    autoClose: 5000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                });
+                //setFullScreenLoader(false);
+                // toast.error(response.message, {
+                //     position: 'top-right',
+                //     autoClose: 5000,
+                //     hideProgressBar: false,
+                //     closeOnClick: true,
+                // });
             }               
             
         } catch (error) {
-            setFullScreenLoader(false); 
+            //setFullScreenLoader(false); 
             toast.error('Error try later.', {
                 position: 'top-right',
                 autoClose: 5000,
@@ -708,7 +720,11 @@ export default function Settings() {
         } finally {
             setFullScreenLoader(false);
         }
-    };   
+    };
+    
+    const gotoKnowledgeBase = async () => {   
+        navigate('/knowledge-base');
+    };
 
     return (
         <div className="page-wrapper compact-wrapper">
@@ -737,7 +753,7 @@ export default function Settings() {
                     </div>
                     <div className="container-fluid">
                         <div className="row"> 
-                            <div className="col-md-8"> 
+                            <div className="col-12 col-md-12 col-lg-7 col-xl-8"> 
                                 <div className="card custom-form-label"> 
                                     <div className="card-header border-0"> 
                                         <h5> Personal Information </h5>                                        
@@ -824,7 +840,7 @@ export default function Settings() {
                                                 </div>
                                             </div>                                           
                                         </div>
-                                            <div className="d-flex  align-items-center gap-3 mt-3">   
+                                            <div className="d-flex  align-items-center gap-3 mt-3 mobile-responsive">   
                                                 <div className="form-group w-100">
                                                     <label>First Name</label>
                                                     <input
@@ -872,7 +888,7 @@ export default function Settings() {
                                                 />
                                             </div> 
 
-                                            <div className="d-flex  align-items-center gap-3 mt-3">   
+                                            <div className="d-flex  align-items-center gap-3 mt-3 mobile-responsive">   
                                                 <div className="form-group w-100">
                                                     <label>Company</label>
                                                     <div className="position-relative">
@@ -913,7 +929,7 @@ export default function Settings() {
                                                 </div> 
                                             </div> 
 
-                                            <div className="d-flex  align-items-center gap-3 mt-3">   
+                                            <div className="d-flex  align-items-center gap-3 mt-3 mobile-responsive">   
                                                 <div className="form-group w-100">
                                                     <label>Location</label>
                                                     <div className=" position-relative">
@@ -1033,7 +1049,7 @@ export default function Settings() {
                                             </div>                                                
                                         </div> 
 
-                                    <div className="d-flex  align-items-center gap-3 mt-3">   
+                                    <div className="d-flex  align-items-center gap-3 mt-3 mobile-responsive">   
                                         <div className="form-group w-100">
                                             <label>New Password</label>
                                             <div className="position-relative">
@@ -1118,7 +1134,7 @@ export default function Settings() {
                                         <h5> App Settings </h5>
                                     </div>
                                     <div className="card-body pt-0"> 
-                                        <div className="d-flex align-items-center gap-3">   
+                                        <div className="d-flex align-items-center gap-3 mobile-responsive">   
                                             <div className="card height-equal w-100 border" style={ {background : '#FBF6FC'}}>
                                                 <div className="card-header border-0 pb-0" style={ {background : '#FBF6FC'}}>
                                                     <div className="d-flex align-items-center justify-content-between mb-2"> 
@@ -1156,6 +1172,7 @@ export default function Settings() {
                                                                     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
                                                                     className="lucid lucide-info" id=""
                                                                     style={ { cursor:'pointer'}}
+                                                                    onClick={() => setShowMessageModal(true)}
                                                                 >
                                                                     <circle cx="12" cy="12" r="10"></circle>
                                                                     <path d="M12 16v-4"></path>
@@ -1166,12 +1183,14 @@ export default function Settings() {
                                                         
                                                         <div className="auto-switch-btn form-check form-switch">
                                                             <input
-                                                                className="form-check-input"
+                                                                className={`form-check-input check-size ${isMessageAutoReplyEnabled ? 'switch-success' : ''}`}
                                                                 type="checkbox"
                                                                 role="switch"
                                                                 id="openModalSwitch"
-                                                                onClick={() => setShowMessageModal(true)} 
-                                                            />                                                            
+                                                                checked={isMessageAutoReplyEnabled}
+                                                                onClick={() => setShowMessageModal(true)}
+                                                                onChange={messageAutoreply} 
+                                                            />                                                                                                                       
                                                         </div> 
                                                     </div>
                                                     <p className="f-m-light mt-1">
@@ -1183,10 +1202,18 @@ export default function Settings() {
                                                         <span style={{ padding:"0px 0 0 10px", fontSize: "12px"}}>Enable/Disable  
                                                             <strong id="openModalSwitch"
                                                                 onClick={() => setShowMessageModal(true)}  
-                                                                style={ { cursor:'pointer'}}> Requirements 
+                                                                style={ { cursor:'pointer',marginLeft:'5px'}}> Requirements 
                                                             </strong> 
                                                         </span> 
-                                                    </div>
+                                                        {activeKnowledgeBaseTotal > 0 && isMessageAutoReplyEnabled === true && (
+                                                            <span className="text-primary text-end"
+                                                                onClick={() => gotoKnowledgeBase()}
+                                                                style={{cursor:'pointer'}} 
+                                                            >
+                                                                See Knowledge
+                                                            </span>
+                                                        )}
+                                                    </div>                                                    
                                                 </div>
                                             </div>
                                         </div>                                                    
@@ -1194,8 +1221,9 @@ export default function Settings() {
                                 </div>                                                                  
                             </div> 
 
-                            <div className="col-md-4"> 
-                                <div className="card">  
+                            <div className="col-12 col-md-12 col-lg-5 col-xl-4"> 
+                               <div className="custom-card-responsive"> 
+                                <div className="card w-100">  
                                     <div className="card-header border-0"> 
                                         <h5> Account Overview </h5>
                                     </div>
@@ -1237,78 +1265,81 @@ export default function Settings() {
                                     </div>
                                 </div>
 
-                                <div className="card">  
-                                    <div className="card-header border-0"> 
-                                        <h5> Timezone </h5>                                                                                                                                                         
-                                    </div>
-                                    <div className="card-body pt-0" > 
-                                        <div className="d-flex flex-column gap-3"> 
-                                            <div className="w-100">                                                                                                
-                                                <div className="w-100 text-center">       
-                                                    <div class="w-100">                                                        
-                                                        <select
-                                                            id="timezone"
-                                                            name="timezone"
-                                                            class="w-100 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                                                            value={selectedTimeZone.timeZoneName}
-                                                            onChange={handleChangeTimezone}
-                                                        >
-                                                            <option value="">-- Select Timezone --</option>
-                                                            {timeZones.map((timeZone) => (
-                                                                <option key={timeZone.timeZoneName} value={timeZone.timeZoneName}>
-                                                                    {timeZone.timeZoneName}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                </div> 
-                                            </div>
-                                        </div>                                     
-                                    </div>
-                                </div>
-
-                                {/* <div className="card">  
-                                    <div className="card-header border-0"> 
-                                        <h5> Security & Privacy </h5>
-                                    </div>
-                                    <div className="card-body pt-0" > 
-                                        <div className="d-flex flex-column gap-3"> 
-                                            <div className="w-100">
-                                                <div className="d-flex align-items-center justify-content-between w-100"> 
-                                                    <p className="fw-medium text-dark mb-0" style={{fontSize:'14px'}}>
-                                                    Two-Factor Authentication
-                                                    </p>
-                                                    <span className="badge rounded-pill bg-success text-white"> Enabled </span>
-                                                </div>
-                                                    <p className="text-muted small">
-                                                      Add an extra layer of security to your account  
-                                                    </p>
-                                                     <div className="w-100 text-center">       
-                                                    <button className="security-privacy btn w-100"> Manage 2FA </button>
+                                <div className="custom-tab-responsive"> 
+                                    <div className="card w-100">  
+                                        <div className="card-header border-0"> 
+                                            <h5> Timezone </h5>                                                                                                                                                         
+                                        </div>
+                                        <div className="card-body pt-0" > 
+                                            <div className="d-flex flex-column gap-3"> 
+                                                <div className="w-100">                                                                                                
+                                                    <div className="w-100 text-center">       
+                                                        <div className="w-100">                                                        
+                                                            <select
+                                                                id="timezone"
+                                                                name="timezone"
+                                                                className="w-100 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                                                                value={selectedTimeZone.timeZoneName}
+                                                                onChange={handleChangeTimezone}
+                                                            >
+                                                                <option value="">-- Select Timezone --</option>
+                                                                {timeZones.map((timeZone) => (
+                                                                    <option key={timeZone.timeZoneName} value={timeZone.timeZoneName}>
+                                                                        {timeZone.timeZoneName}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
                                                     </div> 
-                                            </div>
-                                        </div>             
-                                    </div>
-                                </div> */}
-                                <div className="card">  
-                                    <div className="card-header border-0"> 
-                                        <h5 className="text-danger"> Danger Zone </h5>
-                                    </div>
-                                    <div className="card-body pt-0" >                                        
-                                        <div className="danger-zone p-3 rounded-4"> 
-                                            <h6> Delete Account </h6> 
-                                            <p> Permanently remove your account and all associated data. This action cannot be undone. </p>
-                                            <button className="w-100" onClick={() => setShowAccountModal(true)}>  
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2 h-4 w-4 mr-2">
-                                                    <path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                                                    <line x1="10" x2="10" y1="11" y2="17"></line>
-                                                    <line x1="14" x2="14" y1="11" y2="17"></line>
-                                                </svg> 
-                                                Delete Account 
-                                            </button>
+                                                </div>
+                                            </div>                                     
                                         </div>
                                     </div>
+
+                                    {/* <div className="card">  
+                                        <div className="card-header border-0"> 
+                                            <h5> Security & Privacy </h5>
+                                        </div>
+                                        <div className="card-body pt-0" > 
+                                            <div className="d-flex flex-column gap-3"> 
+                                                <div className="w-100">
+                                                    <div className="d-flex align-items-center justify-content-between w-100"> 
+                                                        <p className="fw-medium text-dark mb-0" style={{fontSize:'14px'}}>
+                                                        Two-Factor Authentication
+                                                        </p>
+                                                        <span className="badge rounded-pill bg-success text-white"> Enabled </span>
+                                                    </div>
+                                                        <p className="text-muted small">
+                                                        Add an extra layer of security to your account  
+                                                        </p>
+                                                        <div className="w-100 text-center">       
+                                                        <button className="security-privacy btn w-100"> Manage 2FA </button>
+                                                        </div> 
+                                                </div>
+                                            </div>             
+                                        </div>
+                                    </div> */}
+                                    <div className="card">  
+                                        <div className="card-header border-0"> 
+                                            <h5 className="text-danger"> Danger Zone </h5>
+                                        </div>
+                                        <div className="card-body pt-0" >                                        
+                                            <div className="danger-zone p-3 rounded-4"> 
+                                                <h6> Delete Account </h6> 
+                                                <p> Permanently remove your account and all associated data. This action cannot be undone. </p>
+                                                <button className="w-100" onClick={() => setShowAccountModal(true)}>  
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash2 h-4 w-4 mr-2">
+                                                        <path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                                        <line x1="10" x2="10" y1="11" y2="17"></line>
+                                                        <line x1="14" x2="14" y1="11" y2="17"></line>
+                                                    </svg> 
+                                                    Delete Account 
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 </div>
                             </div>
                         </div>
@@ -1378,7 +1409,7 @@ export default function Settings() {
                                         To enable AI-powered message auto reply, you need to:
                                     </p>
                                     <div className="d-flex align-items-center my-2 gap-3" >
-                                        <div class="">
+                                        <div className="">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
                                                 viewBox="0 0 24 24"
                                                 fill="none"
@@ -1404,7 +1435,7 @@ export default function Settings() {
                                     </div>
 
                                     <div className="d-flex align-items-center my-2 gap-3" >
-                                        <div class="">
+                                        <div className="">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
                                                 viewBox="0 0 24 24"
                                                 fill="none"
@@ -1428,7 +1459,7 @@ export default function Settings() {
                                     </div>
 
                                     <div className="d-flex align-items-center my-2 gap-3" >
-                                        <div class="">
+                                        <div className="">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
                                                 viewBox="0 0 24 24"
                                                 fill="none"
@@ -1458,6 +1489,7 @@ export default function Settings() {
                                     <button type="button" 
                                         className="btn custom-outline-btn"
                                         data-bs-dismiss="modal" 
+                                        onClick={() => setShowMessageModal(false)}
                                     >
                                         Got it
                                     </button>                                                        

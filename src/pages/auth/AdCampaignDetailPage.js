@@ -1077,10 +1077,10 @@ export default function AdCampaignDetailPage() {
                     <div className="container-fluid">
                         <div className="page-title">
                             <div className="row">
-                                <div className="col-sm-6">
+                                <div className="col-12 col-sm-6">
                                     <h1 className='h1-heading'>Ad Campaign Details</h1>
                                 </div>
-                                <div className="col-sm-6">
+                                <div className="col-7 col-sm-6 my-lg-3">
                                     {/* <ol className="breadcrumb">
                                         <li className="breadcrumb-item">Dashboard</li>
                                         <li className="breadcrumb-item">
@@ -1849,13 +1849,13 @@ export default function AdCampaignDetailPage() {
                                                                             <div className="col-md-12">
 
                                                                                 <div className="row my-2">
-                                                                                    <div className="col-md-4">
+                                                                                    <div className="col-5 col-md-4">
                                                                                         <div className="text-start">Age Range</div>
                                                                                     </div>
-                                                                                    <div className="col-md-4 text-center">
+                                                                                    <div className="col-2 col-md-4 text-center">
                                                                                         <span className="text-end">:</span>
                                                                                     </div>
-                                                                                    <div className="col-md-4">
+                                                                                    <div className="col-5  col-md-4">
                                                                                         <p className="badge bg-info p-1 text-center m-0">{`${CampaignData.campaign_audience_age_range} years old` || 'N/A'}</p>
                                                                                     </div>
                                                                                 </div>
@@ -1873,13 +1873,13 @@ export default function AdCampaignDetailPage() {
                                                                                         <div> <p className="badge bg-info p-1 text-center m-0">{CampaignData.campaign_audience_countries || 'N/A'}</p> </div>
                                                                                     </div> */}
                                                                                 <div className="row my-2">
-                                                                                    <div className="col-md-4">
+                                                                                    <div className="col-5 col-md-4">
                                                                                         <div className="text-start">Countries</div>
                                                                                     </div>
-                                                                                    <div className="col-md-4 text-center">
+                                                                                    <div className="col-2 col-md-4 text-center">
                                                                                         <span className="text-end">:</span>
                                                                                     </div>
-                                                                                    <div className="col-md-4">
+                                                                                    <div className="col-5 col-md-4">
                                                                                         <p className="badge bg-info p-1 text-center m-0">{CampaignData.campaign_audience_countries || 'N/A'}</p>
                                                                                     </div>
                                                                                 </div>
@@ -1890,13 +1890,13 @@ export default function AdCampaignDetailPage() {
                                                                                         <div>  <p className="badge bg-info p-1 text-center m-0">{CampaignData.campaign_audience_gender || 'N/A'}</p> </div>
                                                                                     </div> */}
                                                                                 <div className="row my-2">
-                                                                                    <div className="col-md-4">
+                                                                                    <div className="col-5 col-md-4 ">
                                                                                         <div className="text-start">Gender</div>
                                                                                     </div>
-                                                                                    <div className="col-md-4 text-center">
+                                                                                    <div className="col-2 col-md-4 text-center">
                                                                                         <span className="text-end">:</span>
                                                                                     </div>
-                                                                                    <div className="col-md-4">
+                                                                                    <div className="col-5 col-md-4">
                                                                                         <p className="badge bg-info p-1 text-center m-0">{CampaignData.campaign_audience_gender || 'N/A'}</p>
                                                                                     </div>
                                                                                 </div>

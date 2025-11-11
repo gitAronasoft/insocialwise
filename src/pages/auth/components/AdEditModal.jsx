@@ -291,7 +291,7 @@ const AdEditModal = ({ show, onClose, adData, CampData, AdAccount, AllAds }) => 
                         <div className="modal-header"></div>
                         <div className="modal-body create-your-ads-bg">
                             <div className="row">
-                                <div className="col-md-2" style={{overflowY:"scroll"}}>
+                                <div className="col-md-4 col-xl-2 col-xxl-2 " style={{overflowY:"scroll"}}>
                                     <div className="p-2">
                                         {/* <div className="my-2 d-flex gap-3 justify-content-between align-items-center">
                                             <div>
@@ -378,7 +378,7 @@ const AdEditModal = ({ show, onClose, adData, CampData, AdAccount, AllAds }) => 
                                 </div>
 
                                 {/* <div className="col-md-6 bg-white create-your-ads-height"> */}
-                                <div className="col-md-6 bg-white">
+                                <div className="col-md-8 col-xl-6 col-xxl-6 bg-white create-your-ads-height">
                                     <div className="p-2 d-flex justify-content-between align-items-center">
                                         <div>
                                             <h6> Edit AD Details </h6>
@@ -530,7 +530,7 @@ const AdEditModal = ({ show, onClose, adData, CampData, AdAccount, AllAds }) => 
 
                                 </div>
 
-                                <div className="col-md-4 ">
+                                <div className="my-lg-3 col-md-12 col-xl-4 col-xxl-4 ads-custom-container ">
                                     <div className="post-preview-height">
 
                                         <ul className="nav nav-tabs d-flex align-items-center justify-content-center my-3" id="previewTabs" role="tablist">
@@ -734,8 +734,8 @@ const AdEditModal = ({ show, onClose, adData, CampData, AdAccount, AllAds }) => 
 
                                                                 <div className="d-flex justify-content-between align-items-center p-2 border-bottom bg-danger text-white">
                                                                     <div> {formatCTA(callToAction)} </div>
-                                                                    <div>
-                                                                        <img className="me-1" src={`${process.env.PUBLIC_URL}/assets/images/ads-img/right-arrow (2).png`} alt="" />
+                                                                    <div> 
+                                                                        <img className="me-1" src={`${process.env.PUBLIC_URL}/assets/ads-img/right-arrow (2).png`} alt=""/> 
                                                                     </div>
                                                                 </div>
 
@@ -746,7 +746,7 @@ const AdEditModal = ({ show, onClose, adData, CampData, AdAccount, AllAds }) => 
                                                                             <div className="d-flex align-items-center"> <i className="fas fa-comment"></i>&nbsp;120K </div>
                                                                             <div className="d-flex align-items-center"> <i className="fas fa-paper-plane"></i>&nbsp;98.8K </div>
                                                                         </div>
-                                                                        <div className="w-25 text-end">
+                                                                        <div className="w-25 me-1 text-end">
                                                                             <i className="far fa-bookmark"></i>
                                                                         </div>
                                                                     </div>
@@ -802,7 +802,7 @@ const AdEditModal = ({ show, onClose, adData, CampData, AdAccount, AllAds }) => 
                                                     <div className="d-flex justify-content-between align-items-center p-2 border-bottom bg-danger text-white">
                                                         <div> {formatCTA(callToAction)} </div>
                                                         <div> 
-                                                            <img className="me-1" src={`${process.env.PUBLIC_URL}/assets/images/ads-img/right-arrow (2).png`} alt="" />
+                                                            <img className="me-1" src={`${process.env.PUBLIC_URL}/assets/ads-img/right-arrow (2).png`} alt=""/> 
                                                         </div>
                                                     </div>
 
@@ -813,7 +813,7 @@ const AdEditModal = ({ show, onClose, adData, CampData, AdAccount, AllAds }) => 
                                                                 <div className="d-flex align-items-center"> <i className="fas fa-comment"></i>&nbsp;884 </div>
                                                                 <div className="d-flex align-items-center"> <i className="fas fa-paper-plane"></i>&nbsp;269 </div>
                                                             </div>
-                                                            <div className="w-25 text-end">
+                                                            <div className="w-25 me-1 text-end">
                                                                 <i className="far fa-bookmark"></i>
                                                             </div>
                                                         </div>

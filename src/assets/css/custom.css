@@ -2286,3 +2286,145 @@ input[type="checkbox"] {
   visibility: visible;
   opacity: 1;
 }
+
+.loader-popup-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 9999;
+}
+.loader-popup-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+}
+.loader-card {
+  animation: scaleIn 0.3s ease-in-out;
+}
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.alert-blue {
+  background-color: rgba(43, 96, 196, 0.04);
+  /* border-color: rgba(43, 96, 196, 0.3); */
+  color: rgb(43, 96, 196);
+}
+.alert-purple {
+  background-color: rgba(103, 53, 196, 0.04);
+  /* border-color: rgba(103, 53, 196, 0.3); */
+  color: rgb(103, 53, 196);
+}
+.alert-red {
+  background-color: rgba(202, 56, 56, 0.04);
+  /* border-color: rgba(202, 56, 56, 0.3); */
+  color: rgb(202, 56, 56);
+}
+.alert-orange {
+  background-color: rgba(197, 104, 42, 0.04);
+  /* border-color: rgba(197, 104, 42, 0.3); */
+  color: rgb(197, 104, 42);
+}
+
+/* Andy Add CSS */
+
+.border-green-300 {
+  --tw-border-opacity: 1;
+  border-color: rgb(134 239 172 / var(--tw-border-opacity, 1)) !important;
+}
+
+.bg-green-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(240 253 244 / var(--tw-bg-opacity, 1)) !important;
+}
+
+.text-green-600 {
+  --tw-text-opacity: 1;
+  color: rgb(22 163 74 / var(--tw-text-opacity, 1)) !important;
+}
+
+.font-medium {
+  font-weight: 500 !important;
+}
+
+.text-xs {
+  font-size: .75rem;
+  line-height: 1rem;
+}
+
+.bg-gray-300 {
+    --tw-bg-opacity: 1;
+    background-color: rgb(209 213 219 / var(--tw-bg-opacity, 1)) !important;
+}
+
+.checkedGreen {
+  background-color:  rgb(22 163 74 / var(--tw-text-opacity, 1)) !important;
+  color: #fff;
+  border:none;
+}
+
+.bg-gray-300 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(209 213 219 / var(--tw-bg-opacity, 1)) !important;
+}
+
+.plateform-select-btn {
+  padding: 12px 8px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.plateform-select-btn:hover {
+ background-color: rgb(244, 244, 244);
+}
+
+/* End Andy Add CSS */
+
+/* AI Assist for post content popup css */
+.ai-assist-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1050;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.ai-assist-popup {
+  background: #fff;
+  width: 680px;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+}
+.suggestion-card {
+  background: #F8F9FA;
+  transition: 0.25s ease;
+  position: relative;
+}
+.suggestion-card:hover {
+  background: #EEF2FF;
+}
+.use-this-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.25s ease;
+}
+.use-this-btn.show-btn {
+  opacity: 1;
+  visibility: visible;
+}

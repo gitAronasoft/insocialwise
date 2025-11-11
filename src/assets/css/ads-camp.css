@@ -650,3 +650,129 @@ phone {
 .step-indicator:hover i {
   display: inline-block !important;
 }
+
+
+.facebook-post-img img {
+  width: 100%;
+}
+
+
+
+@media screen and (min-width: 768px) and (max-width: 1024px) {
+   
+  .custom-modal-width {
+      max-width: 99%;
+      width: 95%;
+  }
+
+  .create-your-ads {
+    width: 99%;
+    max-width: 95%;
+}
+
+phone {
+  height: auto !important;
+  padding: 30px 0;
+  background-color: #fff;
+  border-radius: 10px;
+}
+
+.post-preview-height {
+    height: 700px;
+    overflow-y: scroll;
+    width: 62%;
+    margin: auto;
+    padding: 0 5px;
+}
+
+.post-preview-height ul.nav-tabs {
+  position: sticky;
+  top: 0; /* 👈 required — defines where it sticks */
+  z-index: 1000; /* 👈 keeps it above other elements */
+  background: #fff; 
+  padding: 20px 0;
+  width: 100%;
+   border-radius: 10px;
+}
+
+
+.ads-custom-container {
+  /* background-color: #f3f4f5; */
+  border-radius: 10px;
+  padding: 20px 0;
+}
+} 
+
+
+
+
+@media screen and (max-width: 580px) {
+  .progress-steps {
+    margin-left: 0;
+    width: 20px !important;
+  }
+
+  .progress-container {
+   /* width: 20px; */
+    /* border: 2px solid red; */
+    padding: 0px 12px 0 11px;
+    position: relative;
+    right: 7px;
+    overflow-x: hidden !important;
+
+  }
+
+
+
+ .custom-modal-width {
+  max-width: 98% !important;
+  width: 98% !important;
+  margin: auto !important;
+ }
+
+ .step-indicator {
+  left: 0;
+  padding: 2px;
+  width: 2px;
+ }
+
+ .progress-line {
+  position: absolute;
+  left: 2px;
+ }
+ .step-indicator.active .step-circle {
+  position: relative;
+  left: -14px;
+  bottom: 2px;
+ }
+
+ .step-circle {
+  width: 25px;
+  height: 25px;
+  position: relative;
+  left: -13px;
+ }
+
+ .progress-line-fill {
+    position: absolute;
+    left: 0px;
+
+ }
+
+ .custom-y-scroll {
+    padding-left: 4px;  /* px-1 equivalent */
+    padding-right: 4px;
+  }
+
+  .create-your-ads {
+    width: 99% !important;
+    max-width: 99% !important;
+    margin: auto;
+  }
+  /* .custom-back-btn {
+    padding: 10px;
+  } */
+
+ 
+
+}

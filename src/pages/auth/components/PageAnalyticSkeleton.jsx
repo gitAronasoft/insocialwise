@@ -53,7 +53,7 @@ export default function PageAnalyticSkeleton() {
                         {/* Always skeleton for icon */}
                         <Skeleton circle width={45} height={45} />
                       </div>
-                      <span className="text-capitalize">{platform}</span>
+                      <span className="text-capitalize"><Skeleton width={100} height={24} /></span>
                     </div>
                     <span className="font-dark f-12">
                       <Skeleton width={20} height={24} />

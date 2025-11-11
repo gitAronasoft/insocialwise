@@ -75,6 +75,28 @@ export default function CreatePost() {
         mobile: { breakpoint: { max: 464, min: 0 }, items: 1 }
     };
 
+    const [showAIAssist, setShowAIAssist] = useState(false);
+    const [aiSuggestions, setAiSuggestions] = useState([]);
+    const [aiLoading, setAiLoading] = useState(false);
+
+    const [showAIQuestionnaire, setShowAIQuestionnaire] = useState(false);
+    const [aiFormData, setAiFormData] = useState({
+        topic: "",
+        industry: "",
+        objective: "",
+        tone: "",
+        audience: "",
+    });
+
+    const [showAIImagePopup, setShowAIImagePopup] = useState(false);
+    const [imagePrompt, setImagePrompt] = useState("");
+    const [generatedImage, setGeneratedImage] = useState(null);
+    const [aiImageLoading, setAiImageLoading] = useState(false);
+
+    const [showRecreatePopup, setShowRecreatePopup] = useState(false);
+    const [previousPrompts, setPreviousPrompts] = useState([]);
+    const [newPrompt, setNewPrompt] = useState("");
+
     useEffect(() => {
         if(topic) {       
             setFullScreenLoader(true);
@@ -1389,6 +1411,613 @@ export default function CreatePost() {
         return null;
     };
 
+    const handleAIAssist = async () => {
+        if (!postContent.trim()) {
+            setShowAIQuestionnaire(true);
+            return;
+        }
+
+        setShowAIAssist(true);
+        setAiLoading(true);
+
+        try {
+            const AI_WEBHOOK_URL = `${process.env.REACT_APP_AI_ASSIST_WEBHOOK_URL}`;
+            const response = await axios.post(`${AI_WEBHOOK_URL}`,{
+                event: 'assist_button_clicked',
+                user_text: postContent,
+            });
+
+            // ✅ Error handling if API returns error
+            if (response.data?.error) {
+                toast.error(response.data.error);
+                setAiSuggestions([]);
+                setShowAIAssist(false);
+                return;
+            }
+
+            // Ensure the output is parsed safely
+            let suggestions = response.data?.output?.suggestions;
+            if (typeof suggestions === 'string') {
+                try {
+                    suggestions = JSON.parse(suggestions);
+                } catch (e) {
+                    console.error('Failed to parse suggestions JSON:', e);
+                }
+            }
+            // console.log("Response Suggestions:", suggestions);
+            setAiSuggestions(suggestions || []);
+        } catch (error) {
+            console.error('Error fetching AI Assist suggestions:', error);
+            toast.error('Failed to fetch AI suggestions');
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    const AIPopup = () => (
+        showAIAssist && (
+            <div className="ai-assist-overlay">
+                <div className="ai-assist-popup">
+                    <div className="popup-header d-flex justify-content-between align-items-center">
+                        <h5 className="fw-bold mb-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-wand-sparkles h-4 w-4 mr-2">
+                                <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"></path>
+                                <path d="m14 7 3 3"></path><path d="M5 6v4"></path><path d="M19 14v4"></path><path d="M10 2v2"></path><path d="M7 8H3"></path><path d="M21 16h-4"></path><path d="M11 3H9"></path>
+                            </svg>&nbsp;
+                            AI Content Assistant
+                        </h5>
+                        <button className="btn-close" style={{border:"1px solid lightgray", borderRadius:"50%", fontSize:"12px", padding:"10px"}} 
+                            onClick={() => setShowAIAssist(false)}></button>
+                    </div>
+                    <p className="text-muted">Here are AI-powered improvements for your post content</p>
+                    <div className="d-flex justify-content-between mt-1">
+                        <h6 className="my-auto">Content Suggestions</h6>
+                        <div className="d-flex justify-content-end" style={{fontSize:"12px"}}>
+                            <button className="custom-light-btn" onClick={handleAIAssist}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw h-3 w-3 mr-1">
+                                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                    <path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path>
+                                </svg>&nbsp;
+                                Generate Again
+                            </button>
+                            {/* <button className="custom-light-btn" onClick={handleAIAssist}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-wand-sparkles h-4 w-4 mr-2">
+                                    <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"></path>
+                                    <path d="m14 7 3 3"></path><path d="M5 6v4"></path><path d="M19 14v4"></path><path d="M10 2v2"></path><path d="M7 8H3"></path><path d="M21 16h-4"></path><path d="M11 3H9"></path>
+                                </svg>&nbsp;
+                                Rewrite
+                            </button> */}
+                        </div>
+                    </div>
+
+                    {aiLoading ? (
+                        <div className="text-center py-4">
+                            <div className="spinner-border text-primary" role="status"></div>
+                            <p className="mt-2">Generating suggestions...</p>
+                        </div>
+                    ) : (
+                        <div className="suggestion-list mt-3" style={{maxHeight: 300, overflowY: "scroll"}}>
+                            {aiSuggestions.length > 0 ? (
+                                aiSuggestions.map((s, i) => (
+                                    <div key={i} className="suggestion-card p-3 mb-2 rounded border" 
+                                            onMouseEnter={(e) =>e.currentTarget.querySelector(".use-this-btn")?.classList.add("show-btn") }
+                                            onMouseLeave={(e) => e.currentTarget.querySelector(".use-this-btn")?.classList.remove("show-btn")}>
+                                        <div className="row">
+                                            <div className="col-md-10 mobile-px-0">
+                                                <p className="mb-0 px-2">{s.post_text}</p>
+                                            </div>
+                                            <div className="col-md-2 my-auto mobile-px-0">
+                                                <button className="btn btn-primary btn-sm use-this-btn w-100" style={{fontSize:"12px"}}
+                                                    onClick={() => { setPostContent(s.post_text); setShowAIAssist(false);}}>
+                                                        Use this
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-4 text-muted">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" className="mb-2" viewBox="0 0 24 24">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                    </svg>
+                                    <p className="mb-0">Not able to generate content at this moment.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                </div>
+            </div>
+        )
+    );
+
+    const AIQuestionnaire = () => (
+        showAIQuestionnaire && (
+            <div className="ai-assist-overlay">
+                <div className="ai-assist-popup" style={{ maxWidth: "550px" }}>
+                    <div className="popup-header d-flex justify-content-between align-items-center">
+                        <h5 className="fw-bold mb-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-wand-sparkles h-4 w-4 mr-2">
+                                <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"></path>
+                                <path d="m14 7 3 3"></path><path d="M5 6v4"></path><path d="M19 14v4"></path><path d="M10 2v2"></path><path d="M7 8H3"></path><path d="M21 16h-4"></path><path d="M11 3H9"></path>
+                            </svg>&nbsp;
+                            AI Content Assistant
+                        </h5>
+                        <button className="btn-close" onClick={() => setShowAIQuestionnaire(false)}></button>
+                    </div>
+                    <p className="text-muted mb-2">Tell us about your post — answer a few questions so AI can create the perfect content for you. </p>
+
+                    <div className="mb-2">
+                        <label className="form-label">What topic do you want to write about?</label>
+                        <input type="text" className="form-control" placeholder="e.g., AI in business, healthy recipes, investment tips..."
+                            value={aiFormData.topic} onChange={(e) => setAiFormData({ ...aiFormData, topic: e.target.value })} />
+                    </div>
+
+                    <div className="mb-2">
+                        <label className="form-label">What industry are you in?</label>
+                        <select className="form-select" value={aiFormData.industry} onChange={(e) => setAiFormData({ ...aiFormData, industry: e.target.value })}>
+                            <option value="">Select your industry</option>
+                            <option>Technology</option>
+                            <option>Finance</option>
+                            <option>Health & Wellness</option>
+                            <option>Education</option>
+                            <option>Marketing</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+
+                    <div className="mb-2">
+                        <label className="form-label">What's your main objective?</label>
+                        <select className="form-select" value={aiFormData.objective} onChange={(e) => setAiFormData({ ...aiFormData, objective: e.target.value })} >
+                            <option value="">Select goal</option>
+                            <option>Increase engagement</option>
+                            <option>Promote a product</option>
+                            <option>Build brand awareness</option>
+                            <option>Educate audience</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+
+                    <div className="mb-2">
+                        <label className="form-label">What tone do you prefer?</label>
+                        <select className="form-select" value={aiFormData.tone} onChange={(e) => setAiFormData({ ...aiFormData, tone: e.target.value })} >
+                            <option value="">Select tone</option>
+                            <option>Professional</option>
+                            <option>Friendly</option>
+                            <option>Inspirational</option>
+                            <option>Funny</option>
+                            <option>Bold</option>
+                        </select>
+                    </div>
+
+                    <div className="mb-3">
+                        <label className="form-label">Who is your target audience?</label>
+                        <input type="text" className="form-control" placeholder="e.g., entrepreneurs, parents, students, professionals..."
+                            value={aiFormData.audience} onChange={(e) => setAiFormData({ ...aiFormData, audience: e.target.value })} />
+                    </div>
+
+                    <div className="d-flex justify-content-end">
+                        {/* <button className="btn btn-outline-secondary me-2" onClick={() => setShowAIQuestionnaire(false)}> Cancel</button> */}
+                        <button className="custom-light-btn" style={{background: "linear-gradient(to right, #9333EA, #2563EB)", color: "white"}}
+                            onClick={async () => {
+                                if (!aiFormData.topic || !aiFormData.industry || !aiFormData.objective || !aiFormData.tone || !aiFormData.audience) {
+                                    toast.error('Please fill all fields before continuing');
+                                    return;
+                                }
+
+                                setShowAIQuestionnaire(false);
+                                setShowAIAssist(true);
+                                setAiLoading(true);
+
+                                try {
+                                    const AI_WEBHOOK_URL = `${process.env.REACT_APP_AI_ASSIST_WEBHOOK_URL}`;
+                                    const response = await axios.post(AI_WEBHOOK_URL, {
+                                        event: 'ai_questionnaire',
+                                        formData: aiFormData,
+                                    });
+
+                                    // ✅ Error handling if API returns error
+                                    if (response.data?.error) {
+                                        toast.error(response.data.error);
+                                        setAiSuggestions([]);
+                                        setShowAIAssist(false);
+                                        return;
+                                    }
+
+                                    let suggestions = response.data?.output?.suggestions;
+                                    if (typeof suggestions === 'string') {
+                                        try {
+                                            suggestions = JSON.parse(suggestions);
+                                        } catch (e) {
+                                            console.error('Failed to parse suggestions JSON:', e);
+                                        }
+                                    }
+
+                                    if (suggestions.length > 0) {
+                                        setAiSuggestions(suggestions || []);
+                                        // toast.success('AI suggestions generated successfully!');
+                                    } else {
+                                        toast.error('No suggestions could be generated. Please try again.');
+                                        setShowAIAssist(false);
+                                    }
+
+                                    // ✅ Reset form fields after success
+                                    setAiFormData({
+                                        topic: "",
+                                        industry: "",
+                                        objective: "",
+                                        tone: "",
+                                        targetAudience: "",
+                                    });
+
+                                } catch (error) {
+                                    console.error('AI generation failed:', error);
+                                    toast.error('Failed to generate content');
+                                } finally {
+                                    setAiLoading(false);
+                                }
+                            }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-wand-sparkles h-4 w-4 mr-2">
+                                <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"></path>
+                                <path d="m14 7 3 3"></path><path d="M5 6v4"></path><path d="M19 14v4"></path><path d="M10 2v2"></path><path d="M7 8H3"></path><path d="M21 16h-4"></path><path d="M11 3H9"></path>
+                            </svg>&nbsp;
+                            Generate New
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    );
+
+    const handleAIImageGenerate = async () => {
+        if (!imagePrompt.trim()) {
+            toast.error("Please describe the image you want to create.");
+            return;
+        }
+
+        setAiImageLoading(true);
+        setGeneratedImage(null);
+        
+        try {
+            const AI_IMAGE_WEBHOOK_URL = `${process.env.REACT_APP_AI_IMAGE_WEBHOOK_URL}`;
+            const response = await axios.post(AI_IMAGE_WEBHOOK_URL, { prompt: imagePrompt }, { responseType: "arraybuffer" });
+            const contentType = response.headers["content-type"];
+            
+            const blob = new Blob([response.data], { type: contentType || 'image/png' });
+            const imageUrl = URL.createObjectURL(blob);
+
+            if (generatedImage?.url) { URL.revokeObjectURL(generatedImage.url); }
+            setGeneratedImage({ url: imageUrl, file: blob, prompt: imagePrompt, });
+            
+        } catch (error) {
+            console.error("AI image generation failed:", error);
+            toast.error("Failed to generate image. Please try again.");
+        } finally {
+            setAiImageLoading(false);
+        }
+    };
+
+    /**
+     * Compresses an image Blob by reducing its quality and/or size using Canvas.
+     * @param {Blob} blob The image Blob to compress (from generatedImage.file)
+     * @param {number} quality The JPEG quality (0.0 to 1.0). Use 0.7 for a good balance.
+     * @param {number} maxWidth The maximum width to resize the image to (maintains aspect ratio).
+     * @returns {Promise<Blob>} A promise that resolves to the compressed Blob.
+     */
+    const compressImageBlob = (blob, quality = 0.7, maxWidth = 1500) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    // 1. Calculate new dimensions while preserving aspect ratio
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = height * (maxWidth / width);
+                        width = maxWidth;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    // 2. Draw the image at the new size
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // 3. Export the canvas content as a new Blob with the specified quality
+                    canvas.toBlob(
+                        (newBlob) => {
+                            if (newBlob) {
+                                if (newBlob.size < blob.size) {
+                                    resolve(newBlob);
+                                } else {
+                                    resolve(blob); 
+                                }
+                            } else {
+                                reject(new Error("Canvas toBlob failed to create new Blob."));
+                            }
+                        }, 
+                        'image/jpeg',
+                        quality
+                    );
+                };
+                img.onerror = reject;
+                img.src = event.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    };
+
+    const handleRecreate = async () => {
+        if (!newPrompt.trim()) {
+            toast.error("Please enter a new prompt for recreation.");
+            return;
+        }
+        if (!generatedImage || !generatedImage.file) {
+            toast.error("No image found to recreate.");
+            return;
+        }
+        setAiImageLoading(true);
+        
+        try {
+            const originalBlob = generatedImage.file;
+            // console.log(`Original Size: ${(originalBlob.size / 1024 / 1024).toFixed(2)} MB`);
+            
+            const compressedBlob = await compressImageBlob(originalBlob, 0.7, 1500);
+            // console.log(`Compressed Size: ${(compressedBlob.size / 1024 / 1024).toFixed(2)} MB`);
+            
+            const formData = new FormData();
+            formData.append('sourceImage', compressedBlob, 'image-to-recreate.jpeg');
+            formData.append('prompt', newPrompt);
+            const response = await axios.post(`${process.env.REACT_APP_AI_IMAGE_WEBHOOK_URL}`, formData, { responseType: "arraybuffer" });
+
+            const contentType = response.headers["content-type"];
+            const recreatedBlob = new Blob([response.data], { type: contentType || 'image/png' });
+            const recreatedUrl = URL.createObjectURL(recreatedBlob);
+
+            if (generatedImage?.url) { URL.revokeObjectURL(generatedImage.url); }
+
+            setGeneratedImage({ url: recreatedUrl, file: recreatedBlob, prompt: newPrompt, });
+
+            setPreviousPrompts((prev) => [...prev, newPrompt]);
+            setNewPrompt("");
+            toast.success("Image successfully recreated!");
+
+        } catch (error) {
+            // ... (Error handling logic) ...
+            console.error("Failed to recreate image:", error);
+            toast.error(`Failed to recreate image: ${error.message || 'An unknown error occurred'}`);
+        } finally {
+            setAiImageLoading(false);
+        }
+    };
+
+    const setResetImagePopup = () => {
+        setShowAIImagePopup(false);
+        setImagePrompt("");
+        setGeneratedImage(null);
+        setPreviousPrompts([]); 
+    };
+
+    const setResetRecreatePopup = () => {
+        setShowRecreatePopup(false);
+        setNewPrompt("");
+    };
+
+    const GenerateAIImagePopup = () =>
+    showAIImagePopup && (
+        <div className="ai-assist-overlay">
+            <div className="ai-assist-popup" style={{ maxWidth: "680px" }}>
+                <div className="popup-header d-flex justify-content-between align-items-center">
+                    <h5 className="fw-bold mb-0">
+                        <span style={{color: "#9333EA"}}><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-sparkles h-3 w-3 mr-1"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg></span>
+                        &nbsp; Generate AI Image
+                    </h5>
+                    <button className="btn-close" onClick={() => setResetImagePopup() }></button>
+                </div>
+                <p className="text-muted mb-3">Describe the image you want to create, and AI will generate it for you.</p>
+
+                {generatedImage && (
+                    <div className="d-flex justify-content-end gap-2 mb-4 mobile-responsive">
+                        <button className="btn btn-primary" onClick={() => {
+                                setMediaFiles((prev) => [
+                                    ...prev, { id: Date.now(), type: "image", file: generatedImage.file, url: generatedImage.url },
+                                ]);
+                                setShowAIImagePopup(false);
+                                setResetImagePopup();
+                                toast.success("AI-generated image added to your post!");
+                            }}> Use this Image 
+                        </button>
+                        <button className="custom-light-btn" onClick={handleAIImageGenerate}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-wand-sparkles h-4 w-4 mr-2">
+                                <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"></path>
+                                <path d="m14 7 3 3"></path><path d="M5 6v4"></path><path d="M19 14v4"></path><path d="M10 2v2"></path><path d="M7 8H3"></path><path d="M21 16h-4"></path><path d="M11 3H9"></path>
+                            </svg> Generate Another
+                        </button>
+                        <button className="custom-light-btn" onClick={() => { setShowRecreatePopup(true);  }}> 
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw h-3 w-3 mr-1">
+                                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                <path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path>
+                            </svg> Recreate Image
+                        </button>
+                    </div>
+                )}
+
+                <div className="" style={{ maxHeight:"400px",overflowY:"scroll"}}>
+                    <div className="mb-3">
+                        <label className="form-label fw-semibold">Image Description</label>
+                        <textarea className="form-control" rows="5" value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)}
+                            placeholder="e.g., A modern minimalist workspace with a laptop and coffee, sunset lighting, professional photography style">
+                        </textarea>
+                        <small className="text-muted"> 💡 Tip: Be specific about style, colors, mood, and details for best results </small>
+                    </div>
+
+                    {!generatedImage && (
+                        <div className="example-prompts p-2 rounded mb-3" style={{background: "linear-gradient(to right, #faf5ff, #eff6ff)",
+                                border: "1px solid #e165e161" }}>
+                            <strong className="text-dark">Example Prompts:</strong>
+                            <ul className="mb-0 mt-1 small">
+                                <li>"A vibrant social media graphic with abstract shapes and gradients"</li>
+                                <li>"Professional business team collaborating in modern office"</li>
+                                <li>"Minimalist product photography of a smartphone on white background"</li>
+                            </ul>
+                        </div>
+                    )}
+                    
+                    {aiImageLoading ? (
+                        // <div className="text-center py-4">
+                        //     <div className="spinner-border text-primary" role="status"></div>
+                        //     <p className="mt-2">Generating image...</p>
+                        // </div>
+                        <div className="d-flex justify-content-between gap-1">
+                            <button className="custom-light-btn me-2" disabled="true"> Cancel</button>
+                            <button className="custom-light-btn" disabled="true" style={{background: "linear-gradient(to right, #9333EA, #2563EB)", color: "white"}}>
+                                <div className="spinner-border spinner-border-sm" role="status">
+                                    <span className="sr-only">Loading...</span>
+                                </div>&nbsp;Generate Image
+                            </button>
+                        </div>
+                    ) : generatedImage ? (
+                        <div className="text-center">
+                            <img src={generatedImage.url} alt="AI Generated" className="img-fluid rounded border mb-3" style={{ maxHeight: "300px" }} />
+                        </div>
+                    ) : (
+                        <div className="d-flex justify-content-between">
+                            <button className="custom-light-btn me-2" onClick={() => setResetImagePopup() }> Cancel</button>
+                            <button className="custom-light-btn" onClick={handleAIImageGenerate}  style={{background: "linear-gradient(to right, #9333EA, #2563EB)", color: "white"}}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-wand-sparkles h-4 w-4 mr-2">
+                                    <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"></path>
+                                    <path d="m14 7 3 3"></path><path d="M5 6v4"></path><path d="M19 14v4"></path><path d="M10 2v2"></path><path d="M7 8H3"></path><path d="M21 16h-4"></path><path d="M11 3H9"></path>
+                                </svg>&nbsp;Generate Image
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+            </div>
+        </div>
+    );
+
+    const RecreateImagePopup = () => {
+        if (!showRecreatePopup) return null;
+
+        // Determine all unique, non-empty prompts used so far to display history
+        let allPrompts = [];
+        if (imagePrompt && !previousPrompts.includes(imagePrompt)) {
+            allPrompts.push(imagePrompt);
+        }
+        allPrompts = [...allPrompts, ...previousPrompts].filter(p => p && p.trim() !== '');
+        // Remove duplicates and keep order
+        allPrompts = Array.from(new Set(allPrompts)); 
+
+        return (
+            <div className={`modal fade ${showRecreatePopup ? 'show d-block' : ''}`} tabIndex="-1" role="dialog" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <div className="modal-dialog modal-dialog-centered modal-lg" role="document">
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h5 className="modal-title d-flex align-items-center gap-2">
+                                <span><i className="fas fa-magic"></i></span> &nbsp; Recreate Image
+                            </h5>
+                            <button className="btn-close" onClick={setResetRecreatePopup}></button>
+                        </div>
+                        <div className="modal-body">
+                            <p className="text-muted mb-3">Modify the current image by providing a new prompt. The generated image below will be used as the base.</p>
+                            
+                            {/* Generated Image Preview */}
+                            {generatedImage && (
+                                <div className="text-center mb-4">
+                                    <h6 className='text-primary fw-bold'>Current Image</h6>
+                                    <img 
+                                        src={generatedImage.url} 
+                                        alt="AI Generated" 
+                                        className="img-fluid rounded border" 
+                                        style={{ maxHeight: "250px", maxWidth: "100%", objectFit: "contain" }} 
+                                    />
+                                    <div className="d-flex justify-content-center gap-2 mt-3">
+                                        <button className="btn btn-success btn-sm" 
+                                            onClick={() => {
+                                                setMediaFiles((prev) => [
+                                                    ...prev,
+                                                    { id: Date.now(), type: "image", file: generatedImage.file, url: generatedImage.url },
+                                                ]);
+                                                setResetRecreatePopup();
+                                                setResetImagePopup();
+                                                setImagePrompt("");
+                                                setShowAIImagePopup(false);
+                                                toast.success("Recreated image added to your post!");
+                                            }}
+                                            disabled={aiImageLoading}
+                                        > Use this Image </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Prompt History (Correction for "messages/prompts in wrong way") */}
+                            {allPrompts.length > 0 && (
+                                <div className="mb-4 p-3 rounded" style={{ backgroundColor: '#f8f9fa', border: '1px solid #eee' }}>
+                                    <h6 className="mb-2 fw-bold text-dark">Prompt History (Image Basis)</h6>
+                                    <div className="list-group list-group-flush">
+                                        {allPrompts.map((p, index) => (
+                                            <div key={index} className="list-group-item d-flex justify-content-between align-items-start px-0" style={{ border: 'none', backgroundColor: 'transparent' }}>
+                                                <small className="text-muted text-break d-block">
+                                                    {/* Display "LAST" badge on the last prompt used to generate the image */}
+                                                    {index === allPrompts.length - 1 ? (
+                                                        <span className="badge bg-primary me-2">LAST</span>
+                                                    ) : (
+                                                        <span className="badge bg-secondary me-2">{index + 1}</span>
+                                                    )}
+                                                    {p}
+                                                </small>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* New Prompt Input */}
+                            <div className="mb-3">
+                                <label className="form-label fw-bold">New Prompt for Recreation</label>
+                                <textarea 
+                                    className="form-control" 
+                                    rows="3" 
+                                    placeholder="e.g., Change the style to oil painting, add a small robot in the corner..." 
+                                    value={newPrompt} 
+                                    onChange={(e) => setNewPrompt(e.target.value)} 
+                                />
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="d-flex justify-content-between">
+                                <button className="custom-light-btn" onClick={setResetRecreatePopup} disabled={aiImageLoading}> Cancel</button>
+                                <button className="btn btn-primary" onClick={handleRecreate} disabled={!newPrompt.trim() || aiImageLoading}>
+                                    {aiImageLoading ? (
+                                        <>
+                                            <div className="spinner-border spinner-border-sm me-2" role="status">
+                                                <span className="sr-only">Loading...</span>
+                                            </div>
+                                            Recreating...
+                                        </>
+                                    ) : (
+                                        <span><i className="fas fa-redo-alt"></i> Recreate Image</span>
+                                    )}
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="page-wrapper compact-wrapper">
             <Header />
@@ -1408,16 +2037,16 @@ export default function CreatePost() {
                     <div className="container-fluid">
                         <div className="page-title p-0">
                             <div className="row">
-                                <div className="col-sm-6">
+                                <div className="col-sm-12 col-md-12 col-xl-6 mobile-px-0">
                                     <h1 className="fw-bolder h1-heading">Create Post</h1>
                                     <span className="mt-2">Craft engaging content for your social media platforms</span>
                                 </div>
-                                <div className="col-sm-6">
+                                <div className="col-sm-12 col-md-12 col-xl-6 mobile-px-0">
                                     {filteredPages.length === 0 ? (
                                         <></>
                                     ) : (
                                         loading ? (
-                                            <div className="action-buttons">
+                                            <div className="action-buttons ">
                                                 <button className="btn btn-primary" disabled={loading} >Posting &nbsp;
                                                     <div className="spinner-border spinner-border-sm" role="status">
                                                         <span className="sr-only">Loading...</span>
@@ -1449,17 +2078,24 @@ export default function CreatePost() {
                         <div className="row">
                             <div className="col-12">
                                 <div className="row">
-                                    <div className="col-md-8">
+                                    <div className="col-md-12 col-xl-8">
                                         <div className="card">
                                             <div className="card-body">
                                                 <div className="sidebar-body">
                                                     <div className="row g-3 common-form">
-                                                        <div className="col-md-12 d-flex align-items-center justify-content-between">
+                                                        <div className="col-md-12 d-flex align-items-center justify-content-between mobile-responsive ">
                                                             <h3 className="fw-bold text-dark">Post Content</h3>
-                                                            <button type="button" className='custom-light-btn'>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-wand-sparkles h-4 w-4 mr-2"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"></path><path d="m14 7 3 3"></path><path d="M5 6v4"></path><path d="M19 14v4"></path><path d="M10 2v2"></path><path d="M7 8H3"></path><path d="M21 16h-4"></path><path d="M11 3H9"></path></svg>
+                                                            <button type="button" className='custom-light-btn my-lg-3' onClick={handleAIAssist} style={{background: "linear-gradient(to right, #9333EA, #2563EB)", color: "white"}}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-wand-sparkles h-4 w-4 mr-2">
+                                                                    <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"></path>
+                                                                    <path d="m14 7 3 3"></path><path d="M5 6v4"></path><path d="M19 14v4"></path><path d="M10 2v2"></path><path d="M7 8H3"></path><path d="M21 16h-4"></path><path d="M11 3H9"></path>
+                                                                </svg>
                                                                 AI Assist
                                                             </button>
+                                                            {AIPopup()}
+                                                            {AIQuestionnaire()}
+                                                            {GenerateAIImagePopup()}
+                                                            {RecreateImagePopup()}
                                                         </div>
                                                         <div className="col-md-12">
                                                             <h2 className="section-title text-dark">Write your post</h2>                                                            
@@ -1476,7 +2112,7 @@ export default function CreatePost() {
                                                                     setSelectionEnd(e.target.selectionEnd);
                                                                 }}
                                                             />
-                                                            <div className="d-flex justify-content-between align-items-center mt-2">
+                                                            <div className="d-flex justify-content-between align-items-center mt-2 mobile-responsive">
                                                                 <div className="character-count"><span id="char-count">{postContent.length}</span>/{maxCharacters} characters</div>
                                                                 <span className="text-muted"> Recommended: 200-700 characters for best engagement </span>
                                                             </div>
@@ -1510,6 +2146,10 @@ export default function CreatePost() {
                                                                                     <rect x="2" y="6" width="14" height="12" rx="2"></rect>
                                                                                 </svg>
                                                                                 Video
+                                                                            </button>
+                                                                            <button className="upload-btn-custom" onClick={() => setShowAIImagePopup(true)} style={{background: "linear-gradient(to right, #9333EA, #2563EB)", color: "white"}}>
+                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-sparkles h-3 w-3 mr-1"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg> 
+                                                                                Generate AI Image
                                                                             </button>
                                                                         </div>
                                                                         {mediaFiles.length > 0 ? (
@@ -1555,7 +2195,7 @@ export default function CreatePost() {
                                                         </div>
 
                                                         <div className="col-md-12">
-                                                            <div className="d-flex justify-content-between align-items-center mb-3">
+                                                            <div className="d-flex justify-content-between align-items-center mb-3 mobile-responsive">
                                                                 <div className="d-flex align-items-center">
                                                                     <div className="d-flex me-2">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-hash h-5 w-5 text-gray-700 dark:text-gray-300"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>
@@ -1566,29 +2206,28 @@ export default function CreatePost() {
                                                                         AI Generated
                                                                     </span>
                                                                 </div>
-                                                                <button className="btn btn-outline-secondary btn-sm rounded-pill d-flex align-items-center" onClick={handleHashtagWebhook} disabled={hashTagLoader || !postContent.trim()}>
+                                                                <button className="btn btn-outline-secondary btn-sm rounded-pill d-flex align-items-center my-lg-3" onClick={handleHashtagWebhook} disabled={hashTagLoader || !postContent.trim()}>
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-refresh-cw h-3 w-3 mr-1"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
-                                                                    <span className="ms-2">{hashTagLoader ? 'Generating…' : 'Refresh'}</span>
+                                                                    <span className="ms-2">{hashTagLoader ? 'Generating…' : hashTags?.length ? 'Refresh' : 'Generate'}</span>
                                                                 </button>
                                                             </div>
 
                                                             <div className="container-bg p-3 rounded-3 mb-3">
                                                                 <div className="d-flex flex-wrap gap-2 mb-3">
                                                                     {(hashTags?.length ? hashTags : []).map(tag => (
-                                                                            <span key={tag} className="badge hashtag-badge rounded-pill px-3 py-1" 
-                                                                                onClick={() => handleHashtagClick(tag)} style={{ cursor: 'pointer' }} >
-                                                                                {tag}
-                                                                            </span>
-                                                                        ))
-                                                                    }
+                                                                        <span key={tag} className="badge hashtag-badge rounded-pill px-3 py-1" 
+                                                                            onClick={() => handleHashtagClick(tag)} style={{ cursor: 'pointer' }} >
+                                                                            {tag}
+                                                                        </span>
+                                                                    )) }
                                                                 </div>
 
                                                                 <div className="border-top border-top-custom pt-3">
                                                                     <label className="text-label mb-3">Add Custom Hashtags</label>
-                                                                    <div className="d-flex gap-2 mb-2">
+                                                                    <div className="d-flex gap-2 mb-2 mobile-responsive">
                                                                         <input type="text" className="form-control form-control-sm custom-input rounded-3" placeholder="Type hashtag and press Enter..."
                                                                             id="new-task" value={customTagInput} onChange={(e) => setCustomTagInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddCustomTag()} />
-                                                                        <button className="custom-success-btn w-25" id="add-task" onClick={handleAddCustomTag}>
+                                                                        <button className="custom-success-btn" id="add-task" onClick={handleAddCustomTag}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-plus h-3 w-3 mr-1"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
                                                                             <span className="">Add to Post</span>
                                                                         </button>
@@ -1609,7 +2248,7 @@ export default function CreatePost() {
                                                                         <label className="form-label fw-medium">Select platforms to publish</label>
                                                                         <div className="row g-3 mt-2">
                                                                             {platforms.map(platform => (
-                                                                                <div key={platform.id} className="col-md-6 col-lg-4">
+                                                                                <div key={platform.id} className="col-12 col-sm-12 col-md-4 col-lg-4 col-xl-4 col-xxl-4">
                                                                                     <div className={`platform-select-card ${platform.selected ? 'selected' : ''}`}
                                                                                         onClick={() => togglePlatform(platform.id)}
                                                                                         // style={{ paddingBottom: "2rem" }}
@@ -1658,9 +2297,9 @@ export default function CreatePost() {
                                                             <div className="col-md-12 px-3">
                                                                 <div className="pages-container">
                                                                     <div className="mb-4">
-                                                                        <div className="d-flex align-items-center justify-content-between mb-2">
+                                                                        <div className="d-flex align-items-center justify-content-between mb-2 mobile-responsive">
                                                                             <label className="form-label mb-0">Select pages/accounts to post to</label>
-                                                                            <span className="card-time fw-bold p-1 text-orange-medium rounded"><small>Select pages to publish</small></span>
+                                                                            <span className="card-time fw-bold p-1 text-orange-medium rounded "><small>Select pages to publish</small></span>
                                                                         </div>
                                                                         {platforms.filter(p => p.selected).length > 0 ? (
                                                                             platforms.filter(p => p.selected).map(platform => (
@@ -1753,7 +2392,7 @@ export default function CreatePost() {
                                                                         </span>
                                                                     </div>
                                                                     
-                                                                    <div className="row g-4">
+                                                                    <div className="row g-4 custom-row-gap">
                                                                         <div className="col-md-4">
                                                                             <div className="card card-insight card-reach p-3 rounded-3">
                                                                                 <div className="d-flex align-items-center gap-2">
@@ -1801,7 +2440,7 @@ export default function CreatePost() {
                                         </div>
                                     </div>
 
-                                    <div className="col-md-4">
+                                    <div className="col-md-8 col-xl-4">
                                         <div className="card">                                            
                                             <div className="preview-container card-body">
                                                 <div className="d-flex align-items-center gap-2 mb-2">

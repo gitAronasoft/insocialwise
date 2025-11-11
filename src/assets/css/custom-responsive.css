@@ -1,0 +1,564 @@
+/* dashboar page responsive start */
+/* html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow-x: hidden !important;
+} */
+
+.custom-accounts-card .addPlatform-card {
+    padding: 10px;
+}
+
+.custom-dropdown-full {
+    right: 0;
+}
+
+.custom-success-btn {
+    width: 25%;
+}
+
+
+
+@media screen and (min-width: 1025px) and (max-width: 1280px) {
+
+    .custom-margin-top {
+        margin-top: 20px;
+    }
+
+    .social-performance-responsive {
+        display: flex;
+        gap: 30px;
+        /* border: 2px solid rgb(28, 230, 129); */
+    }
+
+    /* all accounts page style start  */
+
+    .signal-table.table-responsive .table tbody tr td:nth-child(n+2) {
+        min-width: 210px;
+    }
+
+    /* all accounts page style end  */
+
+
+    .custom-calendarPicker {
+        width: 320px;
+    }
+
+    .ReactModal__Content.ReactModal__Content--after-open {
+        transform: translate(-50%, -50%);
+        width: 45% !important;
+        padding: 25px;
+    }
+
+    .custom-dropdown-full {
+        right: 0px;
+    }
+
+    #rows .dropdown-menu.show {
+        bottom: 44px !important;
+        top: auto !important;
+    }
+
+    .action-buttons {
+        justify-content: flex-start;
+        margin: 20px 0 !important;
+    }
+
+}
+
+@media screen and (min-width: 768px) and (max-width: 1024px) {
+    /* Styles for small laptops and larger tablets */
+
+    .social-performance-responsive {
+        display: flex;
+        gap: 30px;
+        /* border: 2px solid red; */
+    }
+
+    .signal-table.table-responsive .table tbody tr td:nth-child(n+2) {
+        min-width: auto;
+    }
+
+    .inbox-sidebar {
+        /* height: 80vh !important; */
+        max-height: 61vh !important;
+    }
+
+    .custom-card-responsive {
+        display: flex;
+        align-items: baseline;
+        gap: 20px;
+        /* align-items: center; */
+
+    }
+
+    .custom-tab-responsive {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+    }
+
+    .my-lg-3 {
+        margin: 20px 0;
+    }
+
+    .social-content span {
+        font-size: 10px;
+    }
+
+    .h6-card-heading {
+        font-size: 20px;
+    }
+
+    .nav-tabs .nav-item.show .nav-link,
+    .nav-tabs .nav-link.layout-btn.active {
+        padding: 6px 11px;
+    }
+
+    .ReactModal__Content.ReactModal__Content--after-open {
+        transform: translate(-50%, -50%);
+        width: 55% !important;
+        height: 80%;
+        padding: 25px !important;
+    }
+
+
+    .btn-outline-primary {
+        padding: 6px 25px !important;
+    }
+
+
+}
+
+/* (min-width: 768px) and (max-width: 1024px) */
+
+
+
+@media screen and (max-width: 1025px) {
+
+
+
+    /* body {
+        overflow: hidden !important;
+    } */
+
+    /*
+     .page-wrapper.compact-wrapper {
+        overflow: hidden !important;
+        border: 2px solid green; 
+     } */
+
+    .custom-margin-top {
+        margin-top: 20px;
+    }
+
+    /* .page-body-wrapper {
+        margin: 10px;
+    } */
+
+    .signal-table.table-responsive .table tbody tr td:nth-child(n+2) {
+        min-width: auto;
+    }
+
+    .nav-tabs .nav-item.show .nav-link,
+    .nav-tabs .nav-link.layout-btn.active {
+        padding: 6px 11px;
+
+    }
+
+    .custom-dropdown-full {
+        right: 0px;
+    }
+
+    #rows .dropdown-menu.show {
+        bottom: 42px !important;
+        top: auto !important;
+    }
+
+    .action-buttons {
+        justify-content: flex-start;
+        margin: 20px 0 !important;
+    }
+
+
+}
+
+@media screen and (min-width: 581px) and (max-width: 767px) {
+
+    .nav-tabs .nav-item.show .nav-link,
+    .nav-tabs .nav-link.layout-btn.active {
+        padding: 6px 11px;
+    }
+
+
+}
+
+@media screen and (min-width: 300px) and (max-width: 399px) {
+
+    .custom-selected-pages {
+        min-width: 323px;
+    }
+
+    .custom-seleted-date {
+        width: 100% !important;
+        background-color: #fff;
+        border-radius: 7px;
+    }
+
+    .custom-calendarPicker {
+        /* min-width: 325px; */
+        width: 325px;
+        border: 0px !important;
+    }
+
+    .calendar-icon {
+        top: 75px !important;
+        right: 14px !important;
+    }
+}
+
+@media screen and (min-width: 400px) and (max-width: 580px) {
+    .custom-selected-pages {
+        min-width: 365px;
+        padding: 5px;
+    }
+
+    .custom-calendarPicker {
+        min-width: 365px;
+        padding: 5px;
+    }
+
+    .calendar-icon {
+        top: 75px !important;
+        right: 40px !important;
+    }
+
+}
+
+
+@media screen and (max-width: 580px) {
+
+
+    /* body {
+            overflow-x: hidden;
+    } */
+
+    h5 {
+        font-weight: 500;
+        letter-spacing: -0.025em;
+        font-size: 17px;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .draft-footer p {
+        font-size: 10px;
+    }
+
+    .trending-topics .draft-footer {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        align-items: flex-start !important;
+    }
+
+
+    .scheduled-posts-week {
+        overflow-x: auto;
+        overflow-y: hidden;
+        width: 100%;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+        padding-bottom: 10px;
+        /* small space for scrollbar */
+    }
+
+    /* Optional: custom thin scrollbar for mobile */
+    .scheduled-posts-week::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .scheduled-posts-week::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 10px;
+    }
+
+
+    .btn-primary {
+        padding: 10px !important;
+        /* border: 1px solid red !important; */
+        width: 100% !important;
+        font-size: 12px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+    }
+
+    .custom-light-btn {
+        padding: 10px !important;
+        /* border: 1px solid red !important; */
+        width: 100% !important;
+        font-size: 12px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+    }
+
+    .addPlatform-card .mobile-responsive {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+
+    .profile-analytics {
+        padding-top: 20px;
+        width: 100% !important;
+    }
+
+    .disconnect-btn {
+        position: relative;
+        bottom: 65px;
+
+    }
+
+    .mobile-responsive {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+
+    .col-12-m-none {
+        margin-right: 0 !important;
+    }
+
+    .mobile-devise-img {
+        width: 100% !important;
+        overflow-x: hidden;
+
+    }
+
+    .mobile-devise-img img {
+        width: 300px !important;
+        bottom: 4px;
+        max-width: 267px !important;
+
+    }
+
+    .mobile-chat-screen {
+        position: absolute !important;
+        left: -400px !important;
+    }
+
+
+    .primary-badge {
+        padding: 2px 6px;
+        font-size: 10px;
+
+    }
+
+    /* header style start */
+    .welcome-heading p {
+        display: none;
+    }
+
+    .welcome-heading h2 {
+        font-size: 14px;
+    }
+
+    /* header style end */
+
+    /* .custom-selected-pages {
+        width: 320px;
+    }
+
+    .custom-calendarPicker {
+        width: 320px; 
+    } */
+
+
+
+    /* .calendar-icon {
+        top: 77px !important;
+        right: 15px;
+    } */
+
+    .my-lg-3 {
+        margin: 20px 0;
+    }
+
+    .nav-tabs .nav-item.show .nav-link,
+    .nav-tabs .nav-link.active {
+        padding: 7px 9px;
+        font-size: 13px;
+        border: 1px solid transparent;
+    }
+
+    .nav-tabs .nav-item.show .nav-link,
+    .nav-tabs .nav-link {
+        padding: 7px 9px;
+        font-size: 13px;
+
+    }
+
+    ul#socialTabs {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .h1-heading {
+        font-size: 23px;
+    }
+
+    .custom-width-100 {
+        width: 100%;
+    }
+
+    .page-wrapper.compact-wrapper .page-body-wrapper .page-body {
+        margin-top: 80px;
+    }
+
+    .social-tabs .nav .social-box {
+        padding: 10px 12px;
+        gap: 5px !important;
+    }
+
+    /* button#rows-tab {
+    display: none !important;
+} */
+
+    .mobile-layout-btn {
+        display: none !important;
+    }
+
+    .responsive-gap {
+        gap: 0.25rem !important;
+        /* equivalent to Bootstrap gap-1 */
+    }
+
+    .comments-card .comments-card-img {
+        display: none;
+    }
+
+    .grid-container {
+        padding: 5px 10px
+    }
+
+    .page-body {
+        margin: 5px !important;
+    }
+
+    /* .page-body {
+     
+        padding: 5px !important;
+    } */
+
+    .page-body-wrapper .page-body {
+        margin: 90px 6px 0px 6px !important;
+
+    }
+
+    .social-tabs .tab-content {
+        margin-bottom: 0;
+    }
+
+    .mobile-align-items {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .ReactModal__Content.ReactModal__Content--after-open {
+        transform: translate(-50%, -50%);
+        width: 96% !important;
+        height: 80%;
+        padding: 10px !important;
+    }
+
+    .mobile-px-0 {
+        padding: 0;
+    }
+
+    .selected-page-item .user-name {
+        font-size: 15px;
+    }
+
+    .modal-footer {
+        display: flex !important;
+    }
+
+    /* .ReactModal__Content.ReactModal__Content--after-open  */
+    .modal-footer a.btn-primary {
+        width: 65% !important;
+    }
+
+    .modal-footer .custom-outline-btn {
+        padding: 10px 12px;
+        font-size: 12px;
+    }
+
+    .login-card .login-main {
+        width: auto !important;
+    }
+
+    .page-tabs-container ul {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .action-buttons {
+        /* justify-content: flex-start; */
+        margin: 20px 0 !important;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .custom-success-btn {
+        width: 100%;
+    }
+
+    .card-time {
+        margin: 6px 0;
+    }
+
+    .custom-row-gap {
+        gap: 0px !important;
+    }
+    .card-insight {
+        margin-bottom: 0 !important;
+    }
+
+    .ai-assist-popup {
+        width: 95% !important;
+        /* border: 1px solid red; */
+    }
+
+    .upload-buttons {
+        flex-direction: row !important;
+    }
+
+    .custom-show-btn {
+        width: 90% !important;
+        margin: auto !important;
+    }
+
+}
+
+/* 580pxx */
+
+
+
+
+/* Dashboard page responsive end */
+
+/* @media (max-width: 991.98px) {
+  .inbox-sidebar-wrapper {
+    width: 100% !important;
+  }
+  .chat-window-wrapper {
+    width: 100% !important;
+  }
+  .inbox-container {
+    flex-direction: column;
+  }
+} */
