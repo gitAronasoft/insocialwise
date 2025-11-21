@@ -8,6 +8,7 @@ import { toast } from 'react-toastify';
 import Modal from 'react-modal';
 import { Dropdown } from 'react-bootstrap';
 import moment from 'moment';
+import axios from "axios";
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import { format, subDays } from 'date-fns';
 import 'react-date-range/dist/styles.css'; // main style file
@@ -22,6 +23,7 @@ import FbDetailSkeleton from './components/FbDetailSkeleton';
 import HoverPostPreview from './components/HoverPostPreview';
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
+import SocialMediaPageScore from './components/SocialMediaPageScore';
 
 export default function FacebookAnalyticsDetailPage() {
     const navigate = useNavigate();
@@ -49,6 +51,7 @@ export default function FacebookAnalyticsDetailPage() {
     const [commentsSentiment, setCommentsSentiment] = useState(null);
     const RunTopPostAPI = useRef(false);
     const [posts, setPosts] = useState([]);
+    const [socialScores, setSocialScore] = useState(null);
     const months = [
         'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -309,6 +312,7 @@ export default function FacebookAnalyticsDetailPage() {
     }
 
     const PageAnalytics = async (pageInfo, getDataFormDate, getDataToDate) => {
+        fetchSocialScore(pageInfo.pageId);
         setFullScreenLoader(true);
         setSelectPage(pageInfo);
         setShowPagesList(false);
@@ -1734,6 +1738,28 @@ export default function FacebookAnalyticsDetailPage() {
     }
     // End Delete selected comments
 
+    const fetchSocialScore = async (pageId) => {
+        const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+        try {
+            const res = await axios.post(`${BACKEND_URL}/api/social-media-page-score`,
+                { page_id: pageId },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('authToken'),
+                    }
+                }
+            );
+            console.log("response",res);
+            if(res.data.success === true){
+                console.log("Social Score Data: ", res.data.data);
+                setSocialScore(res.data.data);
+            }
+        } catch (err) {
+            console.error('Profile fetch failed:', err.response?.data || err.message);
+        }
+    }
+
     return (
         <div className="page-wrapper compact-wrapper mt-3">
             <Header />
@@ -1749,32 +1775,14 @@ export default function FacebookAnalyticsDetailPage() {
                                             <div className='d-flex gap-3 align-items-center'>
                                                 <div>
                                                     {/* <img src={`${process.env.PUBLIC_URL}/assets/images/analytics-ican/facebook (2).png`} alt="" />  */}
-                                                    <div
-                                                        className="facebook-ican"
-                                                        style={{
-                                                            background: "linear-gradient(to right, #2563eb, #1e40af)", borderRadius: "1rem"
-                                                        }}
-                                                    >
-                                                        <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            width="32"
-                                                            height="32"
-                                                            viewBox="0 0 24 24"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            strokeWidth="2"
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            className="lucide lucide-facebook"
-                                                        >
+                                                    <div className="facebook-ican" style={{ background: "linear-gradient(to right, #2563eb, #1e40af)", borderRadius: "1rem" }}>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-facebook" >
                                                             <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
                                                         </svg>
                                                     </div>
                                                 </div>
                                                 <div className='d-flex flex-column'>
-                                                    <h1 className='h1-heading'>
-                                                        Facebook Summary
-                                                    </h1>
+                                                    <h1 className='h1-heading'> Facebook Summary </h1>
                                                     <div> <p className='pb-0 mb-0' style={{ fontSize: "16px" }}> Detailed analytics and performance insights </p></div>
                                                 </div>
                                             </div>
@@ -1793,26 +1801,9 @@ export default function FacebookAnalyticsDetailPage() {
                                                                             <span className="selected-page-name d-flex gap-2 ">
                                                                                 {/* <i className="fa-brands fa-facebook text-primary" style={{ fontSize: '13px' }}></i>  */}
                                                                                 <div className="platform-icon-custom mb-0 d-flex justify-content-center align-items-center rounded-circle"
-                                                                                    style={{
-                                                                                        background: "linear-gradient(135deg, rgb(37, 99, 235), rgb(30, 64, 175))",
-                                                                                        width: "20px",
-                                                                                        height: "20px"
-                                                                                    }}
-                                                                                    >
-                                                                                    <svg
-                                                                                        xmlns="http://www.w3.org/2000/svg"
-                                                                                        width="15"
-                                                                                        height="15"
-                                                                                        viewBox="0 0 24 24"
-                                                                                        fill="none"
-                                                                                        stroke="currentColor"
-                                                                                        strokeWidth="2"
-                                                                                        strokeLinecap="round"
-                                                                                        strokeLinejoin="round"
-                                                                                        className="text-white"
-                                                                                    >
-                                                                                        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7
-                                                                                        a1 1 0 0 1 1-1h3z"></path>
+                                                                                    style={{ background: "linear-gradient(135deg, rgb(37, 99, 235), rgb(30, 64, 175))", width: "20px", height: "20px" }}>
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white" >
+                                                                                        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7 a1 1 0 0 1 1-1h3z"></path>
                                                                                     </svg>
                                                                                 </div>
                                                                                 {selectPage.pageName}
@@ -1844,9 +1835,7 @@ export default function FacebookAnalyticsDetailPage() {
                                                                                 <li key={socialUser.id} className="parent-item">
                                                                                     <div className="d-flex align-items-center">
                                                                                         <img className="user-avatar" src={socialUser.img_url} alt="Profile"
-                                                                                            onError={(e) => {
-                                                                                                e.target.src = '/default-avatar.png';
-                                                                                            }}
+                                                                                            onError={(e) => { e.target.src = '/default-avatar.png'; }}
                                                                                             style={{ width: '40px', height: '40px' }}
                                                                                         />
                                                                                         <span className="mr-2">
@@ -1854,22 +1843,9 @@ export default function FacebookAnalyticsDetailPage() {
                                                                                             <div className="platform-icon-custom mb-0 d-flex justify-content-center align-items-center rounded-circle"
                                                                                                 style={{
                                                                                                     background: "linear-gradient(135deg, rgb(37, 99, 235), rgb(30, 64, 175))",
-                                                                                                    width: "25px",
-                                                                                                    height: "25px"
-                                                                                                }}
-                                                                                                >
-                                                                                                <svg
-                                                                                                    xmlns="http://www.w3.org/2000/svg"
-                                                                                                    width="15"
-                                                                                                    height="15"
-                                                                                                    viewBox="0 0 24 24"
-                                                                                                    fill="none"
-                                                                                                    stroke="currentColor"
-                                                                                                    strokeWidth="2"
-                                                                                                    strokeLinecap="round"
-                                                                                                    strokeLinejoin="round"
-                                                                                                    className="text-white"
-                                                                                                >
+                                                                                                    width: "25px", height: "25px"
+                                                                                                }} >
+                                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white" >
                                                                                                     <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7
                                                                                                     a1 1 0 0 1 1-1h3z"></path>
                                                                                                 </svg>
@@ -2369,7 +2345,7 @@ export default function FacebookAnalyticsDetailPage() {
                                                 </div>
                                             </div>
                                             <div className="row">
-                                                <div className="col-md-12">
+                                                <div className="col-md-12 col-lg-12 col-xl-12 col-xxl-8">
                                                     <div className="card sales-report">
                                                         <div className="card-header card-no-border">
                                                             <div className="header-top">
@@ -2403,12 +2379,33 @@ export default function FacebookAnalyticsDetailPage() {
                                                                         options={columnChartOptions}
                                                                         series={platformChartSeries.facebook}
                                                                         type="bar"
-                                                                        height={350}
+                                                                        height={600}
                                                                     />
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
+                                                </div>
+                                                <div className="col-12 col-sm-12 col-md-12 col-xl-12 col-xxl-4">
+                                                    {!socialScores ? (
+                                                        <div className="card">
+                                                            <div className="card-body d-flex align-items-center justify-content-center flex-column text-center" style={{height:325}}>
+                                                                <div className="align-middle">
+                                                                    <h5> Social Proformance Score </h5>
+                                                                    <div className="d-flex align-items-center justify-content-center flex-column text-center mt-2">
+                                                                        <div className=""> 
+                                                                            <p> Add a social account to unlock your personalized score and recommendations.</p> 
+                                                                        </div>
+                                                                        <div>
+                                                                            <button className="btn btn-hover-effect btn-primary d-flex align-items-center justify-content-center my-3"> <i className="fa-solid fa-plus fs-5 me-2"></i> Add a social account </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>                   
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <SocialMediaPageScore socialScores={socialScores} />
+                                                    )}
                                                 </div>
                                             </div>
                                             {/* <div className="row d-flex flex-wrap align-items-stretch my-3">
@@ -4513,96 +4510,169 @@ export default function FacebookAnalyticsDetailPage() {
                                         </div>
                                         {/* end Comments tab */}
                                         {/* Calendar tab */}
+                                        {/* <div className={`tab-pane fade ${activeTab === 'Calendar' ? "show active" : ""}`} id="Calendar" role="tabpanel" aria-labelledby="Calendar-tab">
+                                            
+                                            <div className="row">
+                                                <div className="col-md-12">
+                                                    <div className="card">
+                                                        <div className="card-header card-no-border">
+                                                            <div className="header-top">
+                                                                <h5>Scheduled Post</h5>
+                                                                
+                                                            </div>
+                                                        </div>
+                                                        <div className="card-body pt-0">
+                                                            <div className="common-m-chart">
+                                                                <div id="engagement-chart">
+                                                                    <div style={{ height: "100vh" }}>
+                                                                        <Calendar
+                                                                            localizer={localizer}
+                                                                            events={posts}
+                                                                            startAccessor="start"
+                                                                            endAccessor="end"
+                                                                            onSelectEvent={handleSelectEvent}
+                                                                            eventPropGetter={eventStyleGetter}
+                                                                            components={{
+                                                                                event:CustomEvent,
+                                                                                agenda: {
+                                                                                    event: AgendaEvent,
+                                                                                },
+                                                                            }}
+                                                                            popup={true}
+                                                                            // eventPropGetter={(event) => ({
+                                                                            //     style: {
+                                                                            //         padding: 0, // avoid extra padding
+                                                                            //         backgroundColor: 'transparent', // remove default bg
+                                                                            //     }
+                                                                            // })}
+                                                                            // onSelectEvent={(event) => {
+                                                                            //     //alert(`Post: ${event.postData?.content}`);                                                                        
+                                                                            // }}
+                                                                            views={['month', 'agenda']}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {selectedEvent && (
+                                                                <div className="row">
+                                                                    <div className="col-sm-8" style={{ margin: "0 auto" }} >
+                                                                    <Modal isOpen={isModalOpen} onRequestClose={handleCloseModal} shouldCloseOnOverlayClick={false} contentLabel="Event Details"
+                                                                        ariaHideApp={false} style={{
+                                                                        content: { top: "50%", left: "50%", right: "auto", bottom: "auto", transform: "translate(-50%, -50%)",
+                                                                            width: "40%", height: "60%", padding: "20px", borderRadius: "8px", backgroundColor: "white",
+                                                                            boxShadow: "0px 0px 10px rgba(0, 0, 0, 0.1)", zIndex: 9999, overflowY: "auto", scrollbarWidth: "none" },
+                                                                        overlay: { backgroundColor: "rgba(0, 0, 0, 0.5)", zIndex: 9998 },
+                                                                        }}
+                                                                    >
+                                                                        <div className="modal-content">
+                                                                        <div className="modal-body">
+                                                                            {selectPage ? (
+                                                                            <div className="d-flex align-items-center justify-content-between w-100">
+                                                                                <div className="preview-header">
+                                                                                <img src={selectPage.page_picture} className="profile-pic-popup img-fluid" alt={selectPage.postPageName} />
+                                                                                <div className="profile-info">
+                                                                                    <strong> {selectPage.pageName} </strong>
+                                                                                    <small className="text-info">
+                                                                                    Scheduled on:{" "}
+                                                                                    {moment(selectedEvent.start).format( "D MMMM YYYY [at] h:mm A" )}
+                                                                                    </small>
+                                                                                </div>
+                                                                                </div>
+                                                                                <div className="d-flex justify-content-end">
+                                                                                <div className="d-flex" style={{ paddingRight: 10 }} >
+                                                                                    <div className="dropdown hideArrow">
+                                                                                    <button className="btn btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                                        <i className="fa fa-ellipsis-h"></i>
+                                                                                    </button>
+                                                                                    <ul className="dropdown-menu">
+                                                                                        <li>
+                                                                                        <span className="dropdown-item" onClick={() => {handleEdit(selectedEvent.form_id)} } >
+                                                                                            <i className="fa fa-pencil"></i>{" "}Edit Post
+                                                                                        </span>
+                                                                                        </li>
+                                                                                        <li style={{ cursor: "pointer" }} >
+                                                                                        <span className="dropdown-item"
+                                                                                            onClick={() => {
+                                                                                            setPostToDelete(selectedEvent.postData);
+                                                                                            setShowDeleteModal(true);
+                                                                                            }}
+                                                                                        >
+                                                                                            <i className="fa fa-trash"></i>{" "}
+                                                                                            Delete Post
+                                                                                        </span>
+                                                                                        </li>
+                                                                                    </ul>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="d-flex">
+                                                                                    <button className="btn btn-outline-danger" onClick={handleCloseModal} >
+                                                                                    <i className="fa fa-close"></i>
+                                                                                    </button>
+                                                                                </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            ) : (
+                                                                            <div className="row"></div>
+                                                                            )}
+                                                                            <div className="row">
+                                                                            <div className="post-content">
+                                                                                <div style={{ fontSize: "14px", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
+                                                                                {selectedEvent?.content?.split(/\n+/).filter(line => line.trim() !== "").map((line, lineIndex) => (
+                                                                                    <p key={`line-${lineIndex}`} style={{ margin: "0 0 8px 0" }}>
+                                                                                        {line.split(/(#\w+)/g).map((part, partIndex) =>
+                                                                                        part.startsWith("#") && part.length > 1 ? (
+                                                                                            <span key={`tag-${lineIndex}-${partIndex}`} className="text-primary" style={{ fontWeight: 500 }} >
+                                                                                            {part}
+                                                                                            </span>
+                                                                                        ) : (
+                                                                                            <span key={`text-${lineIndex}-${partIndex}`}>{part}</span>
+                                                                                        )
+                                                                                        )}
+                                                                                    </p>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                            {(() => {
+                                                                                try {
+                                                                                if (typeof selectedEvent.postMedia === 'string') {
+                                                                                    if (selectedEvent.postMedia.startsWith('https://')) {
+                                                                                    return <img src={selectedEvent.postMedia} alt="Post Media" className="post-image" 
+                                                                                            onError={(e) => { e.target.src = `${process.env.PUBLIC_URL}/assets/images/placeholder_img.jpg`; }} />;
+                                                                                    } else {
+                                                                                    return renderMediaPreview(selectedEvent.platform, selectedEvent.postMedia);
+                                                                                    }
+                                                                                }
+                                                                                } catch (err) {
+                                                                                console.log("Post image rendering error: ",err);
+                                                                                }
+                                                                                return <img src={`${process.env.PUBLIC_URL}/assets/images/placeholder_img.jpg`} alt="Default" className="post-image" 
+                                                                                        onError={(e) => { e.target.src = `${process.env.PUBLIC_URL}/assets/images/placeholder_img.jpg`; }}/>;
+                                                                            })()}
+                                                                            <div className="linkedin-footer">
+                                                                                <div className="d-flex justify-content-between align-items-center">
+                                                                                <span className="likes"><i className="far fa-thumbs-up"></i> Likes</span>
+                                                                                <span className="comments"><i className="far fa-comment"></i> Comments</span>
+                                                                                <span className="repost"><i className="fas fa-share-square"></i> Reposts</span>
+                                                                                <span className="send"><i className="fas fa-paper-plane"></i> Shares</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            </div>
+                                                                            
+                                                                        </div>
+                                                                        </div>
+                                                                    </Modal>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div> */}
+
                                         <div className={`tab-pane fade ${activeTab === 'Calendar' ? "show active" : ""}`} id="Calendar" role="tabpanel" aria-labelledby="Calendar-tab">
-                                            {/* <div className="row d-flex flex-wrap align-items-stretch my-3">
-                                                <div className="col-sm-12 col-md-6 col-xl-4 my-1">
-                                                    <div className="card overflow-hidden analytics-tread-card">
-                                                        <div className="card-header card-no-border">
-                                                            <div className="header-top">
-                                                                <div>
-                                                                    <span className="c-o-light mb-1">Engagement</span>
-                                                                    <div className="common-align">
-                                                                        <h5 className="mb-1">Total Interactions</h5>
-                                                                    </div>
-                                                                </div>
-                                                                <div>
-                                                                    <div className="analytics-tread bg-light-primary">
-                                                                        <img src={`${process.env.PUBLIC_URL}/assets/images/analytics-ican/handshake.png`} alt=""/>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="card-body pt-0">
-                                                            <div>
-                                                                <p>Sum of likes, comments, and shares this month.</p>
-                                                                <div className="d-flex flex-wrap gap-3 align-items-center">
-                                                                    <div>
-                                                                        <button className="btn btn-primary">View Details</button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="col-sm-12 col-md-6 col-xl-4 my-1">
-                                                    <div className="card overflow-hidden analytics-tread-card">
-                                                        <div className="card-header card-no-border">
-                                                            <div className="header-top">
-                                                                <div>
-                                                                    <span className="c-o-light mb-1">Audience</span>
-                                                                    <div className="common-align">
-                                                                        <h5 className="mb-1">New Followers</h5>
-                                                                    </div>
-                                                                </div>
-                                                                <div>
-                                                                    <div className="analytics-tread bg-light-primary">
-                                                                        <img src={`${process.env.PUBLIC_URL}/assets/images/analytics-ican/target-audience.png`} alt=""/>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="card-body pt-0">
-                                                            <div>
-                                                                <p>Number of new followers gained.</p>
-                                                                <div className="d-flex flex-wrap gap-3 align-items-center">
-                                                                    <div>
-                                                                        <button className="btn btn-primary">See Growth</button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="col-sm-12 col-md-6 col-xl-4 my-1">
-                                                    <div className="card overflow-hidden analytics-tread-card">
-                                                        <div className="card-header card-no-border">
-                                                            <div className="header-top">
-                                                                <div>
-                                                                    <span className="c-o-light mb-1">Reach</span>
-                                                                    <div className="common-align">
-                                                                        <h5 className="mb-1">Post Reach</h5>
-                                                                    </div>
-                                                                </div>
-                                                                <div>
-                                                                    <div className="analytics-tread bg-light-primary">
-                                                                        <img src={`${process.env.PUBLIC_URL}/assets/images/analytics-ican/social-reach.png`} alt=""/>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="card-body pt-0">
-                                                            <div>
-                                                                <p>Unique users who saw your posts.</p>
-                                                                <div className="d-flex flex-wrap gap-3 align-items-center">
-                                                                    <div>
-                                                                        <button className="btn btn-primary">See Insight</button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div> */}
+                                           
                                             <div className="row">
                                                 <div className="col-md-12">
                                                     <div className="card">
@@ -4626,7 +4696,7 @@ export default function FacebookAnalyticsDetailPage() {
                                                             </div>
                                                         </div>
                                                         <div className="card-body pt-0">
-                                                            <div className="common-m-chart">
+                                                            <div className="common-m-chart common-form custom-common-form">
                                                                 <div id="engagement-chart">
                                                                     <div style={{ height: "100vh" }}>
                                                                         <Calendar
@@ -4772,6 +4842,13 @@ export default function FacebookAnalyticsDetailPage() {
                                                             {/* end calendar post selected */}
                                                         </div>
                                                     </div>
+
+                                                    {/* calendar post for mobile */}
+                                                    <div className="d-block d-md-none card card-body"> 
+                                                        <h5> Post for Mobile </h5>
+                                                    </div> 
+
+
                                                 </div>
                                             </div>
                                         </div>

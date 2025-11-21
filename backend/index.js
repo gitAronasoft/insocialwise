@@ -50,6 +50,8 @@ const { platform } = require("os");
 const colors = require('colors');
 const KnowledgeBase = require("./models/mysql/KnowledgeBase");
 const KnowledgebaseMeta = require("./models/mysql/KnowledgebaseMeta");
+const SocialMediaScore = require("./models/mysql/SocialMediaScore");
+const SocialMediaPageScore = require("./models/mysql/SocialMediaPageScore");
 
 PostComments.belongsTo(UserPost, {
   foreignKey: 'post_id',
@@ -7195,7 +7197,7 @@ app.post('/facebook/webhook', async (req, res) => {
                             );
 
                             const replyData = registerRes.data; // Should contain the new comment ID (replyData.id)
-                            console.log("API Reply Data:", replyData);
+                            //console.log("API Reply Data:", replyData);
                             const now = new Date();
                             const formattedDate = now.toISOString().replace(/\.\d+Z$/, '+0000'); // Date format preserved
 
@@ -7213,7 +7215,8 @@ app.post('/facebook/webhook', async (req, res) => {
                                 from_id: userPost.page_id || null, // Assuming page_id is the source of the reply
                                 from_name: socialPageData.pageName || 'Page Admin',
                                 comment_type: 'reply',
-                                comment_behavior: aiReplyData.behaviour,
+                                //comment_behavior: aiReplyData.behaviour,
+                                comment_behavior: '',
                                 reaction_like: 0,
                                 comment_created_time: formattedDate
                             });
@@ -10411,6 +10414,651 @@ async function fetchLinkedInPageAnalytics(pagedetail) {
     });
 
 // End knowledge base functions
+
+// Social Media Score functions
+    app.get(`/${prefix}/social-media-score`, async (req, res) => {
+        const token = req.token;
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'No token provided.' });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) return res.status(401).json({ message: 'Token not valid.' });
+            try {
+                const socialMediaScore = await SocialMediaScore.findOne({
+                    where: { user_uuid: authData.userData.uuid },
+                    raw: true
+                });
+                // console.log("SocialScore".red, socialMediaScore);
+                if (!socialMediaScore) {
+                    return res.status(200).json({ success: true, data: [], message: 'Social Score not assigned yet.' });
+                }
+                return res.status(200).json({
+                    success: true,
+                    message: 'Social media score found successfully.',
+                    data: socialMediaScore
+                });
+            } catch (fatal) {
+                console.error(':fire:  Fatal in /messages:', fatal);
+                return res.status(500).json({ success: false, message: 'Internal server error.', error: fatal.message });
+            }
+        });
+    });
+    app.post(`/${prefix}/social-media-page-score`, async (req, res) => {
+        const token = req.token;
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'No token provided.' });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) return res.status(401).json({ message: 'Token not valid.' });
+            try {
+                const pageId = req.body.page_id;
+                const socialMediaPageScore = await SocialMediaPageScore.findOne({
+                    where: { user_uuid: authData.userData.uuid, page_id: pageId },
+                    raw: true
+                });
+                // console.log("SocialMediaPageScore".green, socialMediaPageScore);
+                if (!socialMediaPageScore) {
+                    return res.status(200).json({ success: true, data: [], message: 'Social Page Score not assigned yet.' });
+                }
+                return res.status(200).json({
+                    success: true,
+                    message: 'Social media pages score found successfully.',
+                    data: socialMediaPageScore
+                });
+            } catch (fatal) {
+                console.error(':fire:  Fatal in /messages:', fatal);
+                return res.status(500).json({ success: false, message: 'Internal server error.', error: fatal.message });
+            }
+        });
+    });
+    // End of Social Media Score functions
+
+    async function checkOldScores() {
+        try {
+            // :one: Fetch unique user_uuid whose score_date is older than 15 days
+            const results = await SocialMediaScore.findAll({
+                attributes: ["user_uuid"],
+                where: {
+                    score_date: {
+                    [Op.lte]: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000) // past 15 days
+                    }
+                },
+                group: ["user_uuid"], // DISTINCT
+                raw: true
+            });
+            // Convert to array of UUID strings
+            const uniqueUsers = results.map(item => item.user_uuid);
+            if (uniqueUsers.length === 0) {
+                //console.log(`[${new Date().toISOString()}] No users with old social score date.`);
+                return;
+            }
+            // console.log(
+            // `[${new Date().toISOString()}] Found ${uniqueUsers.length} user(s). Sending requests...`
+            // );
+            // :two: Sequential loop (one user at a time)
+            for (const userUUID of uniqueUsers) {
+                try {
+                    await axios.post(`https://n8n.insocialwise.com/webhook/update-social-score`, {
+                    user_uuid: userUUID
+                    });
+                    //console.log(`:white_check_mark: POST sent for user_uuid: ${userUUID}`);
+                } catch (err) {
+                    console.error(`:x: Error sending POST for ${userUUID}: ${err.message}`);
+                }
+            }
+        } catch (error) {
+            console.error(":fire: Error in checkOldScores:", error);
+        }
+    }
+
+    // :three: Run every hour
+    cron.schedule("* * * * *", () => {
+        console.log(`[${new Date().toISOString()}] Running cron: checkOldScores`);
+        checkOldScores();
+    });
+// End Social Media Score functions
+
+// Delete Ads data like Campaigns,Adsets, Ads
+    app.post(`/${prefix}/campaign-delete`, async (req, resp) => {
+        const token = req.token;
+        if (!token) {
+            return resp.status(401).json({ message: "No token provided." });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) {
+                return resp.status(401).json({ message: "Token not valid." });
+            }
+            const { userData } = authData;
+            const { ids, socialUserid, accountid, campaign } = req.body;
+
+            if(!ids || !socialUserid || !accountid || !campaign) {
+                return resp.status(400).json({ 
+                    success: false,
+                    message: "invalid parameters." 
+                });
+            }
+
+            const findSocailUser = await SocialUser.findOne({
+                where: {
+                    user_id: userData.uuid,                    
+                    social_id: socialUserid,
+                },
+                raw: true
+            });
+
+            if(!findSocailUser){
+                return resp.status(404).json({ 
+                    success: false,
+                    message: "Social account not found." 
+                });
+            }
+
+            const userAccessToken = findSocailUser.user_token;
+            const platform = findSocailUser.social_user_platform;
+            const deleteType = 'campaign';
+            const creativeID = '';          
+
+            const findCampaign = await Campaigns.findOne({
+                where: {
+                    user_uuid:userData.uuid,
+                    id: ids,
+                    account_social_userid: socialUserid,
+                    ad_account_id: accountid,
+                    campaign_id: campaign
+                },
+                raw: true
+            });
+
+            if(!findCampaign){
+                return resp.status(404).json({ 
+                    success: false,
+                    message: "Campaign not found." 
+                });
+            }
+
+            const deleteFormPlatform = await deleteCampaign(deleteType, campaign, userAccessToken, platform, creativeID);
+            if(!deleteFormPlatform.success) {
+                return resp.status(400).json({
+                    success: false,
+                    message: `Failed to delete campaign on ${platform}.`,
+                });
+            }
+
+            await Campaigns.destroy({
+                where: {                    
+                    id: ids,
+                    account_social_userid: socialUserid,
+                    ad_account_id: accountid,
+                    campaign_id: campaign
+                }
+            });           
+
+            return resp.status(200).json({                 
+                success: true,
+                message: "Campaign deleted successfully." 
+            });
+        });
+    });    
+
+    app.post(`/${prefix}/delete-adsets-ads`, async (req, resp) => {
+        const token = req.token;
+        if (!token) {
+            return resp.status(401).json({ message: "No token provided." });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) {
+                return resp.status(401).json({ message: "Token not valid." });
+            }
+            const { userData } = authData;
+            const { deleteType, ids, socialUserid, campaign, adsetsID } = req.body;
+
+            if(!deleteType || !ids || !socialUserid || !campaign || !adsetsID) {
+                return resp.status(400).json({ 
+                    success: false,
+                    message: "invalid parameters." 
+                });
+            }
+            
+            const findSocailUser = await SocialUser.findOne({
+                where: {
+                    user_id: userData.uuid,                    
+                    social_id: socialUserid,
+                },
+                raw: true
+            });
+
+            if(!findSocailUser){
+                return resp.status(404).json({ 
+                    success: false,
+                    message: "Social account not found." 
+                });
+            }
+
+            const userAccessToken = findSocailUser.user_token;
+            const platform = findSocailUser.social_user_platform;           
+
+            if(deleteType==='adset'){               
+                const findAdsets = await Adsets.findOne({
+                    where: {
+                        user_uuid:userData.uuid,
+                        id: ids,
+                        account_social_userid: socialUserid,
+                        adsets_campaign_id: campaign,
+                        adsets_id: adsetsID,                        
+                    },
+                    raw: true
+                });
+
+                if(!findAdsets){
+                    return resp.status(404).json({ 
+                        success: false,
+                        message: "Adsets not found." 
+                    });
+                }
+
+                const deleteType = 'adset';
+                const creativeID = '';
+                const deleteFormPlatform = await deleteCampaign(deleteType, adsetsID, userAccessToken, platform, creativeID);
+
+                if(!deleteFormPlatform.success) {
+                    return resp.status(400).json({
+                        success: false,
+                        message: `Failed to delete adset on ${platform}.`,
+                    });
+                }
+
+                await Adsets.destroy({
+                    where: {                    
+                        adsets_id: adsetsID
+                    }
+                });               
+
+                return resp.status(200).json({ 
+                    success: true,
+                    message: "Adsets deleted successfully." 
+                });
+
+            } else if(deleteType==='ads'){
+                const findAdsetsAds = await AdsetsAds.findOne({
+                    where: {
+                        user_uuid:userData.uuid,
+                        id: ids,
+                        account_social_userid: socialUserid,
+                        campaign_id: campaign,
+                        ads_id: adsetsID,                        
+                    },
+                    raw: true
+                });
+
+                if(!findAdsetsAds){
+                    return resp.status(404).json({ 
+                        success: false,
+                        message: "Ads not found." 
+                    });
+                }
+
+                const findcreativeID = await AdsCreative.findOne({
+                    where: {
+                        ad_id: adsetsID,                        
+                    },
+                    raw: true
+                });
+
+                let creativeID = '';
+                if(!findcreativeID){
+                    creativeID ='' ;
+                } else {
+                    creativeID = findcreativeID.creative_id;
+                }
+                const deleteType = 'adset';                
+                const deleteFormPlatform = await deleteCampaign(deleteType, adsetsID, userAccessToken, platform, creativeID);
+
+                if(!deleteFormPlatform.success) {
+                    return resp.status(400).json({
+                        success: false,
+                        message: `Failed to delete adset on ${platform}.`,
+                    });
+                }
+
+                await AdsetsAds.destroy({
+                    where: {                    
+                        ads_id: adsetsID,
+                    }
+                }); 
+                
+                await AdsCreative.destroy({
+                    where: {                    
+                        ad_id: adsetsID
+                    }
+                });
+
+                return resp.status(200).json({ 
+                    success: true,
+                    message: "Ads deleted successfully." 
+                });
+
+            }
+        });
+    });
+
+    const deleteCampaign = async (deleteType, deleteId, accessToken, platform, creativeID) => {        
+        let response = '';
+        if(platform==='facebook' && deleteType==='campaign'){                
+            const url = `https://graph.facebook.com/v22.0/${deleteId}`;
+            response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    status: "DELETED", access_token: accessToken 
+                }),
+            });
+        } else if(platform==='facebook' && deleteType==='adset'){ 
+            response = await fetch(`https://graph.facebook.com/v22.0/${deleteId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    status: "DELETED", 
+                    access_token: accessToken 
+                })
+            });
+        }  else if(platform==='facebook' && deleteType==='ads'){          
+            response = await fetch(`https://graph.facebook.com/v22.0/${deleteId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    status: "DELETED", 
+                    access_token: accessToken 
+                })
+            });
+
+            if(creativeID && creativeID !== '') {
+                await fetch(`https://graph.facebook.com/v22.0/${creativeID}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        status: "DELETED",
+                        access_token: accessToken
+                    })
+                });
+            }
+        }
+             
+        return await response.json();    
+    };
+
+    app.post(`/${prefix}/campaign/updateStatus`, async (req, resp) => {
+        const token = req.token;
+        if (!token) {
+            return resp.status(401).json({ message: "No token provided." });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) {
+                return resp.status(401).json({ message: "Token not valid." });
+            }
+            const { userData } = authData;
+            const { dataID, socialUserid, platform, campaignID, newStatus } = req.body;
+
+            if(!dataID || !socialUserid || !campaignID || !newStatus || !platform) {
+                return resp.status(400).json({ 
+                    success: false,
+                    message: "invalid parameters." 
+                });
+            }
+            try{
+                //SocialUser
+                const findCampaign = await Campaigns.findOne({
+                    where: {
+                        user_uuid: userData.uuid,
+                        id: dataID,
+                        account_social_userid: socialUserid,
+                        campaign_id: campaignID,
+                        account_platform: platform
+                    }
+                });
+
+                if(!findCampaign){
+                    return resp.status(404).json({ 
+                        success: false,
+                        message: "Campaign not found." 
+                    });
+                }
+
+                const findSocailUser = await SocialUser.findOne({
+                    where: {
+                        user_id: userData.uuid,                    
+                        social_id: socialUserid,
+                    },
+                    raw: true
+                });
+
+                if(!findSocailUser){
+                    return resp.status(404).json({ 
+                        success: false,
+                        message: "Social account not found." 
+                    });
+                }
+                const userAccessToken = findSocailUser.user_token;
+
+                const fbCampaignUpdate = await fetch(
+                    `https://graph.facebook.com/v22.0/${campaignID}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            status: newStatus,
+                            access_token: userAccessToken
+                        })
+                    }
+                ).then(r => r.json());
+
+                if (fbCampaignUpdate.error) {
+                    return resp.status(400).json({
+                        success: false,
+                        message: "Facebook update failed.",
+                        error: fbCampaignUpdate.error
+                    });
+                }
+
+                await findCampaign.update({
+                    campaign_effective_status: newStatus
+                });
+                
+                return resp.status(200).json({ 
+                    success: true,
+                    message: "Campaign status changed successfully." 
+                });
+            } catch (error) {
+                console.error('Internal server error.', error);
+                return resp.status(500).json({ 
+                    success: false, 
+                    message: 'Internal server error.'
+                });
+            }
+
+        });
+    });
+
+    app.post(`/${prefix}/adsets/updateStatus`, async (req, resp) => {
+        const token = req.token;
+        if (!token) {
+            return resp.status(401).json({ message: "No token provided." });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) {
+                return resp.status(401).json({ message: "Token not valid." });
+            }
+            const { userData } = authData;
+            const { dataID, socialUserid, platform, adsetsID, newStatus } = req.body;
+
+            if(!dataID || !socialUserid || !adsetsID || !newStatus || !platform) {
+                return resp.status(400).json({ 
+                    success: false,
+                    message: "invalid parameters." 
+                });
+            }
+            try{
+                const findAdsets = await Adsets.findOne({
+                    where: {
+                        user_uuid: userData.uuid,
+                        id: dataID,
+                        account_social_userid: socialUserid,
+                        adsets_id: adsetsID,
+                        account_platform: platform
+                    }
+                });
+
+                if(!findAdsets){
+                    return resp.status(404).json({ 
+                        success: false,
+                        message: "Adsets not found." 
+                    });
+                }
+
+                const findSocailUser = await SocialUser.findOne({
+                    where: {
+                        user_id: userData.uuid,                    
+                        social_id: socialUserid,
+                    },
+                    raw: true
+                });
+
+                if(!findSocailUser){
+                    return resp.status(404).json({ 
+                        success: false,
+                        message: "Social account not found." 
+                    });
+                }
+                const userAccessToken = findSocailUser.user_token;
+
+                const fbAdsetUpdate = await fetch(
+                    `https://graph.facebook.com/v22.0/${adsetsID}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            status: newStatus,
+                            access_token: userAccessToken
+                        })
+                    }
+                ).then(r => r.json());
+
+                if (fbAdsetUpdate.error) {
+                    return resp.status(400).json({
+                        success: false,
+                        message: "Facebook adset update failed.",
+                        error: fbAdsetUpdate.error
+                    });
+                }
+
+                await findAdsets.update({
+                    adsets_status: newStatus
+                });
+                
+                return resp.status(200).json({ 
+                    success: true,
+                    message: "Adsets status changed successfully." 
+                });
+            } catch (error) {
+                console.error('Internal server error.', error);
+                return resp.status(500).json({ 
+                    success: false, 
+                    message: 'Internal server error.'
+                });
+            }
+        });
+    });
+
+    app.post(`/${prefix}/ads/updateStatus`, async (req, resp) => {
+        const token = req.token;
+        if (!token) {
+            return resp.status(401).json({ message: "No token provided." });
+        }
+        jwt.verify(token, secretKey, async (err, authData) => {
+            if (err) {
+                return resp.status(401).json({ message: "Token not valid." });
+            }
+            const { userData } = authData;
+            const { dataID, socialUserid, platform, adsID, newStatus } = req.body;
+
+            if(!dataID || !socialUserid || !adsID || !newStatus || !platform) {
+                return resp.status(400).json({ 
+                    success: false,
+                    message: "invalid parameters." 
+                });
+            }
+            try{
+                const findAdsetsAds = await AdsetsAds.findOne({
+                    where: {
+                        user_uuid: userData.uuid,
+                        id: dataID,
+                        account_social_userid: socialUserid,
+                        ads_id: adsID,
+                        account_platform: platform
+                    }
+                });
+
+                if(!findAdsetsAds){
+                    return resp.status(404).json({ 
+                        success: false,
+                        message: "Adsets not found." 
+                    });
+                }
+
+                const findSocailUser = await SocialUser.findOne({
+                    where: {
+                        user_id: userData.uuid,                    
+                        social_id: socialUserid,
+                    },
+                    raw: true
+                });
+
+                if(!findSocailUser){
+                    return resp.status(404).json({ 
+                        success: false,
+                        message: "Social account not found." 
+                    });
+                }
+                const userAccessToken = findSocailUser.user_token;
+
+                const fbAdsUpdate = await fetch(
+                    `https://graph.facebook.com/v22.0/${adsID}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            status: newStatus,
+                            access_token: userAccessToken
+                        })
+                    }
+                ).then(r => r.json());
+
+                if (fbAdsUpdate.error) {
+                    return resp.status(400).json({
+                        success: false,
+                        message: "Facebook ads update failed.",
+                        error: fbAdsUpdate.error
+                    });
+                }
+
+                await findAdsetsAds.update({
+                    ads_status: newStatus
+                });
+                
+                return resp.status(200).json({ 
+                    success: true,
+                    message: "Ads status changed successfully." 
+                });
+            } catch (error) {
+                console.error('Internal server error.', error);
+                return resp.status(500).json({ 
+                    success: false, 
+                    message: 'Internal server error.'
+                });
+            }
+        });
+    });
+
+// End Delete Ads data like Campaigns,Adsets, Ads
 
 server.listen(serverPort, () => {
     console.log(`Server is running on port ${serverPort}`);

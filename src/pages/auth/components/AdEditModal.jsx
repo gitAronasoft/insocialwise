@@ -632,7 +632,7 @@ const AdEditModal = ({ show, onClose, adData, CampData, AdAccount, AllAds }) => 
                                                                             height="35.5" rx="8.25"
                                                                             stroke="black"
                                                                             stroke-opacity="0.4"
-                                                                            stroke-width="3.5">
+                                                                            strokeWidth="3.5">
                                                                         </rect>
                                                                         <rect x="6.5" y="6.5" width="66"
                                                                             height="26" rx="5" fill="black">

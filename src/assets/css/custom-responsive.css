@@ -18,6 +18,117 @@
     width: 25%;
 }
 
+.cursor-pointer .platform-selected {
+    /* backgroundColor:rgb(219 234 254);
+    fontSize:.75rem;
+    fontWeight:500; 
+    color:'rgb(29 78 216) */
+    background-color: rgb(219 234 254);
+    font-size: .75rem;
+    font-weight: 500;
+    color: rgb(29 78 216);
+}
+
+ .social-performance-responsive small {
+    font-size: 12px;
+}
+
+.sales-report .balance-data {
+    right: 40px;
+}
+
+.footer.page-footer {
+  overflow: hidden !important;
+}
+
+.message-bubble {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 12px;
+  max-width: 75%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: justify;
+}
+
+
+.messages-scrolling {
+    /* background-color: rgb(236, 127, 127); */
+    /* background-image: url(../images/Whatsapp-Wallpaper.jpg); */
+     /* background-image: url(../images/wallpaper.png); */
+      background-image: url(../images/chat-wallpaper.jpg);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    background-position: center;
+    background-size: contain;
+    /* opacity: 0.8; */
+}
+
+.messages-send-btn {
+    border-radius: 8px;
+    padding: 11px 20px;
+}
+
+.text-end .message-bubble {
+    background-color: #2563eb !important;
+    color: #fff;
+    font-weight: 500;
+}
+
+.text-start .message-bubble {
+    background-color: #fff !important; 
+    font-weight: 500;
+}
+
+.text-end .message-bubble .small {
+    color: #fff !important;
+
+}
+
+.messages-scrolling.flex-grow-1.px-3 {
+    width: 100%;
+}
+
+
+.published-card-posts {
+    overflow: none;
+}
+
+  .btn.btn-outline-primary {
+        padding: 5px 20px;     
+    }
+
+@media screen and (min-width: 1281px) and (max-width: 1366px) {
+  /* .social-performance-responsive {
+    display: flex;
+    flex-direction: row;
+    gap: 30px;
+    border: 2px solid rgb(28, 230, 129);
+  } */
+
+  /* .social-performance-responsive small {
+    font-size: 10px;
+} */
+
+}
+
+@media screen and (min-width: 1280px) and (max-width: 1400px) {
+    .social-performance-responsive {
+        display: flex;
+        /* flex-direction: column; */
+        gap: 40px;
+        justify-content: space-evenly;
+    }
+     .custom-margin-top {
+        margin-top: 20px;
+    }
+
+    .custom-success-btn  {
+        width: 30%;
+    }
+}
 
 
 @media screen and (min-width: 1025px) and (max-width: 1280px) {
@@ -28,8 +139,9 @@
 
     .social-performance-responsive {
         display: flex;
+        flex-direction: row !important;
         gap: 30px;
-        /* border: 2px solid rgb(28, 230, 129); */
+        /* border: 1px solid green; */
     }
 
     /* all accounts page style start  */
@@ -63,6 +175,10 @@
     .action-buttons {
         justify-content: flex-start;
         margin: 20px 0 !important;
+    }
+
+    .btn.btn-outline-primary {
+        padding: 5px 16px;     
     }
 
 }
@@ -123,11 +239,13 @@
         padding: 25px !important;
     }
 
-
-    .btn-outline-primary {
+    /* .btn-outline-primary {
         padding: 6px 25px !important;
-    }
+    } */
 
+     .btn.btn-outline-primary {
+        padding: 6px 18px !important;
+    }
 
 }
 
@@ -181,7 +299,9 @@
         margin: 20px 0 !important;
     }
 
-
+    select.form-control {
+        font-size: 14px;
+    }
 }
 
 @media screen and (min-width: 581px) and (max-width: 767px) {
@@ -191,6 +311,9 @@
         padding: 6px 11px;
     }
 
+    .rbc-toolbar {
+        margin: 20px 0;
+    }
 
 }
 
@@ -216,6 +339,8 @@
         top: 75px !important;
         right: 14px !important;
     }
+
+    
 }
 
 @media screen and (min-width: 400px) and (max-width: 580px) {
@@ -234,6 +359,7 @@
         right: 40px !important;
     }
 
+   
 }
 
 
@@ -411,7 +537,7 @@
     }
 
     .custom-width-100 {
-        width: 100%;
+        width: 100% !important;
     }
 
     .page-wrapper.compact-wrapper .page-body-wrapper .page-body {
@@ -476,7 +602,7 @@
     }
 
     .mobile-px-0 {
-        padding: 0;
+        padding: 0 !important;
     }
 
     .selected-page-item .user-name {
@@ -542,11 +668,115 @@
         margin: auto !important;
     }
 
+    /* .knowledge-base-tabs.nav-tabs .nav-item.show .nav-link, .nav-tabs .nav-link {
+        width: 80%;
+        justify-content: center;
+        margin: 10px auto;
+    } */
+
+    div#knowledge-base-tabs .nav-tabs .nav-item.show .nav-link,
+    div#knowledge-base-tabs .nav-tabs .nav-link {
+    width: 80%;
+    justify-content: center;
+    margin: 10px auto;
+    }
+
+    .cursor-pointer .platform-selected {
+        font-size: 10px !important;
+    }
+
+    .plateform-select-btn {
+        padding: 7px 8px;
+        margin: 5px 0;
+        width: 100%;
+    }
+
+    .inbox-sidebar {
+        max-height: 500px;
+    }
+
+    .message-bubble { 
+        max-width: 80% !important;
+    
+    }
+    
+    .messages-send-btn {
+        border-radius: 9px !important;
+        width: auto !important;
+        padding: 12px 20px !important;
+}
+
+/* .chat-input-area input {
+    position: relative;
+    z-index: 0;
+} */
+ .page-wrapper.compact-wrapper .page-body-wrapper div.sidebar-wrapper {
+    z-index: 9999;
+ }
+
+ /* .rbc-day-bg {
+    height: 50px;
+ } */
+
+ .rbc-month-row {
+    flex: none !important;   
+    height: 50px !important;   
+    display: block !important; 
+  }
+
+  .rbc-row-bg .rbc-day-bg {
+    margin: 5px;
+  }
+  .rbc-button-link {
+    padding: 6px;
+}
+
+.rbc-month-view {
+    height: 360px !important;
+    flex: none !important;      /* stop flex expansion */
+    display: block !important; 
+
+}
+
+/* .common-form {
+    height: 500px !important;
+} */
+
+.common-form.custom-common-form {
+    height: 500px !important;
+}
+
+
+.custom-card-padding {
+    padding: 10px !important;
+}
+
+.card-custom-margin {
+    margin: 15px 0 !important;
+}
+
+.custom-ms {
+    margin-left: 0 !important;
+}
+
+/* .rbc-toolbar {
+        margin: 20px 0;
+    } */
+
+    .rbc-toolbar > span  {
+        margin: 6px 0;
+    }
+
+    .img-remove-btn {
+        font-size: 12px;
+    }
+
+    .page-title .primary-badge {
+        margin: 10px 0;
+    }
 }
 
 /* 580pxx */
-
-
 
 
 /* Dashboard page responsive end */
@@ -562,3 +792,80 @@
     flex-direction: column;
   }
 } */
+
+
+
+.inbox-container {
+  display: flex;
+}
+
+.chat-back-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: #333;
+  font-size: 18px;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+.chat-back-btn:hover {
+  opacity: 0.7;
+}
+
+/* .messages-scrolling {
+  overflow-y: auto;
+  flex-grow: 1;
+  height: calc(100vh - 250px);
+} */
+
+/* 📱 Mobile responsiveness */
+@media (max-width: 767px) {
+  .inbox-container {
+    flex-direction: column;
+    height: auto !important;
+  }
+
+  .inbox-container.chat-open .col-md-4 {
+    display: none !important;
+  }
+
+  .col-md-8.custom-container {
+    width: 100% !important;
+    border-radius: 0 !important;
+  }
+
+  .chat-back-btn {
+    display: inline-block !important;
+  }
+
+  .messages-scrolling {
+    height: calc(87vh - 180px) !important;
+  }
+
+  .chat-input-area {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    border-top: 1px solid #eee;
+    z-index: 10;
+  }
+
+   /* .chat-back-btn {
+    display: none !important;
+  } */
+
+}
+
+/* 🖥️ Desktop */
+@media (min-width: 768px) {
+  .chat-back-btn {
+    display: none !important;
+  }
+}
+
+
+
+
+
+
+

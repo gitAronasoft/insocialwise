@@ -1,38 +1,70 @@
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link,useLocation} from 'react-router-dom';
+import { useSidebar } from "../context/SidebarProvider";
 
 export default function Sidebar() {  
   const location = useLocation();
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);  
+  //const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);  
+  const { isSidebarCollapsed, toggleSidebar } = useSidebar();
 
-  const toggleSidebar = () => {
-    setIsSidebarCollapsed(!isSidebarCollapsed);
-    
+  useEffect(() => {
     const header = document.querySelector(".page-header");
     const footer = document.querySelector(".page-footer");
     const body = document.querySelector(
       ".page-wrapper.compact-wrapper .page-body-wrapper .page-body"
     );
 
-    if (header && footer) {
-      if (!isSidebarCollapsed) {
+    if(header && footer) {
+      if(isSidebarCollapsed) {        
         header.style.marginLeft = "100px";
         header.style.width = "calc(100% - 100px)";
         footer.style.marginLeft = "100px";
         footer.style.width = "calc(100% - 100px)";
         body.style.marginLeft = "100px";
-      } else {
+      } else {        
         header.style.marginLeft = "265px";
         header.style.width = "calc(100% - 265px)";
         footer.style.marginLeft = "265px";
         footer.style.width = "calc(100% - 265px)";
         body.style.marginLeft = "265px";
       }
+      // ✅ Optional background color
+      header.style.background = "#b6b6d50a";
+      body.style.background = "#b6b6d50a";      
+      header.style.transition = "all 0.3s ease";
+      body.style.transition = "all 0.3s ease";
     }
-  };
+  }, [isSidebarCollapsed]); 
+
+  // const toggleSidebar = () => {
+  //   setIsSidebarCollapsed(!isSidebarCollapsed);
+    
+    // const header = document.querySelector(".page-header");
+    // const footer = document.querySelector(".page-footer");
+    // const body = document.querySelector(
+    //   ".page-wrapper.compact-wrapper .page-body-wrapper .page-body"
+    // );
+
+    // if (header && footer) {
+    //   if (!isSidebarCollapsed) {
+    //     header.style.marginLeft = "100px";
+    //     header.style.width = "calc(100% - 100px)";
+    //     footer.style.marginLeft = "100px";
+    //     footer.style.width = "calc(100% - 100px)";
+    //     body.style.marginLeft = "100px";
+    //   } else {
+    //     header.style.marginLeft = "265px";
+    //     header.style.width = "calc(100% - 265px)";
+    //     footer.style.marginLeft = "265px";
+    //     footer.style.width = "calc(100% - 265px)";
+    //     body.style.marginLeft = "265px";
+    //   }
+    // }
+  // };
 
   return (   
+    // {`sidebar-wrapper ${isSidebarCollapsed ? "collapsed" : ""}`}
     <div className={`sidebar-wrapper ${isSidebarCollapsed ? "collapsed" : ""}`} data-sidebar-layout="stroke-svg">
       <div>
         <div className="logo-wrapper">

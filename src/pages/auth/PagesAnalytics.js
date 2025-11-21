@@ -930,9 +930,9 @@ export default function PagesAnalytics() {
                                                                     </div>
                                                                     <span>Instagram</span>
                                                                 </div>
-                                                                <span className="font-dark f-12 d-xxl-block" style={{cursor:'pointer'}}>
+                                                                <span className="font-dark f-12" style={{cursor:'pointer'}}>
                                                                     <i className="fa-solid fa-eye"></i>
-                                                                </span>
+                                                                </span>                                                                
                                                             </div>
                                                             <div className="social-content">
                                                                 <div> 
@@ -1065,11 +1065,14 @@ export default function PagesAnalytics() {
                                                                     </div>                                                                    
                                                                     <span>LinkedIn</span>
                                                                 </div>
-                                                                <Link to="/linkedin-analytics-detail" >
+                                                                {/* <Link to="/linkedin-analytics-detail" >
                                                                     <span className="font-dark f-12 d-xxl-block" style={{cursor:'pointer'}}>
                                                                         <i className="fa-solid fa-eye"></i>
                                                                     </span>
-                                                                </Link>
+                                                                </Link> */}
+                                                                <Link to="/linkedin-analytics-detail" className="font-dark f-12">
+                                                                    <i className="fa-solid fa-eye"></i>
+                                                                </Link>                                                                
                                                             </div>
                                                             <div className="social-content">
                                                                 <div> 

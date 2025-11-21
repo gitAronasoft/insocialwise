@@ -275,45 +275,52 @@ export default function PostCalendar() {
             //             </span>
             //         </div>
             //     </div>
+
             // </HoverPostPreview>
-            <HoverPostPreview key={event.postID} post={event} platform={event?.platform?.toLowerCase()} >
-                <div className={`post-card ${isExpired ? "expired" : ""}`} style={{padding: '2px', borderRadius: '0px 5px 5px 0px'}}>
-                    <div className="post-content d-flex" style={{ alignItems: 'center', marginTop: '0px' }}>
-                        <div className="platform-icons me-1" style={{ color:"white", background:getPlatformColor(event.platform) }} >
-                            {platformSVGs[event.platform] || (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-globe h-6 w-6 text-white" >
-                                    <circle cx="12" cy="12" r="10" />
-                                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                                    <path d="M2 12h20" />
-                                </svg>
-                            )}
-                        </div>
+            /* Desktop View */
+            <div className="d-none d-md-block">
+                {posts.map((item) => (
+                    <HoverPostPreview key={event.postID} post={event} platform={event?.platform?.toLowerCase()} >
+                        <div className={`post-card ${isExpired ? "expired" : ""}`} style={{padding: '2px', borderRadius: '0px 5px 5px 0px'}}>
+                            <div className="post-content d-flex" style={{ alignItems: 'center', marginTop: '0px' }}>
+                                <div className="platform-icons me-1" style={{ color:"white", background:getPlatformColor(event.platform) }} >
+                                    {platformSVGs[event.platform] || (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-globe h-6 w-6 text-white" >
+                                            <circle cx="12" cy="12" r="10" />
+                                            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                                            <path d="M2 12h20" />
+                                        </svg>
+                                    )}
+                                </div>
 
-                        <div className="platform-details position-relative flex-grow-1">
-                            <div className="platform-header">
-                                {/* <span className="platform-name">{capitalizeFirstLetter(event.platform)}</span> */}
-                                <span className="platform-name">
-                                    <i className="fa-regular fa-clock"></i> {event.formattedTime}
-                                </span>
-                                <span className={`media-type-badge badge bg-${event.mediaType === "image" ? "success" : 
-                                    event.mediaType === "video" ? "danger" : "info" }`} style={{right: '0'}} >
-                                        {event.mediaType}
-                                </span>
+                                <div className="platform-details position-relative flex-grow-1">
+                                    <div className="platform-header">
+                                        {/* <span className="platform-name">{capitalizeFirstLetter(event.platform)}</span> */}
+                                        <span className="platform-name">
+                                            <i className="fa-regular fa-clock"></i> {event.formattedTime}
+                                        </span>
+                                        <span className={`media-type-badge badge bg-${event.mediaType === "image" ? "success" : 
+                                            event.mediaType === "video" ? "danger" : "info" }`} style={{right: '0'}} >
+                                                {event.mediaType}
+                                        </span>
+                                    </div>
+
+                                    {event.title === 'Expired' ? (
+                                        <div className="post-title text-danger" style={{width:"100px"}}>{event.title}</div>
+                                    ) : (
+                                        <div className="post-title" style={{width:"100px"}}>{event.title}</div>
+                                    )}
+                                    
+                                    {/* <div className="post-time">
+                                        <i className="fa-regular fa-clock"></i> {event.formattedTime}
+                                    </div> */}
+                                </div>
                             </div>
-
-                            {event.title === 'Expired' ? (
-                                <div className="post-title text-danger" style={{width:"100px"}}>{event.title}</div>
-                            ) : (
-                                <div className="post-title" style={{width:"100px"}}>{event.title}</div>
-                            )}
-                            
-                            {/* <div className="post-time">
-                                <i className="fa-regular fa-clock"></i> {event.formattedTime}
-                            </div> */}
                         </div>
-                    </div>
-                </div>
-            </HoverPostPreview>
+                    </HoverPostPreview>
+                ))}
+            </div>
+
         );
     };
 
@@ -427,9 +434,9 @@ export default function PostCalendar() {
                             <div className="col-12">
                                 <div className="row">
                                     <div className="card">
-                                        <div className="card-body">
+                                        <div className="card-body mobile-px-0">
                                             <div className="sidebar-body">
-                                                <div className="row g-3 common-form">
+                                                <div className="row g-3 common-form custom-common-form">
                                                     <div style={{ height: '105vh'}}>
                                                         <Calendar
                                                             localizer={localizer}
@@ -583,6 +590,33 @@ export default function PostCalendar() {
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+
+
+                                <div className="row"> 
+                                    <div className="card"> 
+                                    
+                                        <div className="d-block d-md-none">
+                                            {posts.map((item) => (
+                                                <HoverPostPreview key={item.postID} post={item} platform={item?.platform?.toLowerCase()}>
+                                                <div className={`card  post-card mobile-view ${item.isExpired ? "expired" : ""}`}>
+                                                    <div className="post-content d-flex gap-3 align-items-center p-2">
+                                                    <div className="platform-icons mb-1" style={{ color:"white", background:getPlatformColor(item.platform) }}>
+                                                        {platformSVGs[item.platform]}
+                                                    </div>
+                                                    <div className="platform-details">
+                                                       
+                                                        <div className="post-title">{item.title}</div>
+                                                         <span className="platform-name mt-2">
+                                                        <i className="fa-regular fa-clock"></i> {item.formattedTime}
+                                                        </span>
+                                                    </div>
+                                                    </div>
+                                                </div>
+                                                </HoverPostPreview>
+                                            ))}
+                                        </div>
+                                    </div>                  
                                 </div>
                             </div>
                         </div>

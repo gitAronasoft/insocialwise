@@ -63,6 +63,17 @@ export default function KnowledgeBase() {
             fetchKnowledgebaseData();
         }, []);
 
+        const tabsClick = async () => {           
+            setOpenIndex(null);
+            setKnowledgeBaseData({
+                knowledgeBaseTitle: "",
+                knowledgeBaseContent: "",
+            });
+            setExpandedAccounts({});
+            setSelectedPlatforms([]);
+            setSelectedPages([]);            
+        };
+
         const fetchKnowledgebase = async () => {
             setLoading(true);
             const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
@@ -185,7 +196,7 @@ export default function KnowledgeBase() {
                 knowledgeBaseContent:'',
             });
             setSelectedPages([]);  
-        }       
+        }
 
         const clickSaveKnowledgebase = async () => {                      
             //console.log('selectedPages:', selectedPages);
@@ -299,27 +310,6 @@ export default function KnowledgeBase() {
     // End Code For Add New Entey Tab
 
     // Start Code For Knowledge Entries Tab
-        // const editHandleToggle = (index) => {
-        //     const editItem = savedKnowledgebaseData[index];
-        //     // ✅ Always clear loader when toggling edit
-        //     setSavingIndex(null);
-        //     // ✅ Toggle edit index
-        //     if (editIndex === index) {
-        //         setEditIndex(null);
-        //     } else {
-        //         setEditIndex(index);
-        //     }
-        //     // ✅ Load existing values into edit state
-        //     setEditKnowledgeBaseData({
-        //         editknowledgeBaseTitle: editItem.knowledgeBase_title,
-        //         editknowledgeBaseContent: editItem.knowledgeBase_content,
-        //         editknowledgeBaseStatus: editItem.status,
-        //         editknowledgeBaseSocialDataDetail: editItem.socialDataDetail
-        //     });
-        //     // ✅ Toggle accordion open state
-        //     setOpenIndex(openIndex === index ? null : index);
-        // };
-
         const editHandleToggle = (index) => {
             const editItem = savedKnowledgebaseData[index];
             // ✅ Always clear loader when toggling edit
@@ -387,10 +377,8 @@ export default function KnowledgeBase() {
             if (savingIndex === index) {
                 setSavingIndex(null);
             }
-
             // Close accordion if it’s open for that index
             setOpenIndex((prev) => (prev === index ? null : prev));
-
             setEditKnowledgeBaseData({
                 editknowledgeBaseTitle: "",
                 editknowledgeBaseContent: "",
@@ -626,9 +614,9 @@ export default function KnowledgeBase() {
                     )}
                     <div className="container-fluid">
                         <div className="page-title">
-                            <div className="d-flex justify-content-between align-items-center">
+                            <div className="d-flex justify-content-between align-items-center mobile-responsive">
                                 <div className='d-flex gap-2 align-items-center'>
-                                    <div className="facebook-ican">
+                                    <div className="facebook-ican d-none d-sm-inline">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
                                             fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
                                             strokeLinejoin="round"
@@ -661,11 +649,12 @@ export default function KnowledgeBase() {
                     <div className="container-fluid">
                         <div className="row">
                             <div className="col-md-12">
-                                <div className="">
+                                <div id="knowledge-base-tabs">
                                     <ul className="nav nav-tabs gap-3">
                                         <li className="nav-item">
                                             <button className="nav-link active d-flex align-items-center" 
                                                 data-bs-toggle="tab" data-bs-target="#entries"
+                                                onClick={() => tabsClick()}
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                                     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
@@ -678,6 +667,7 @@ export default function KnowledgeBase() {
                                         <li className="nav-item">
                                             <button className="nav-link d-flex align-items-center" 
                                                 data-bs-toggle="tab" data-bs-target="#platforms"
+                                                onClick={() => tabsClick()}
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                                     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -688,7 +678,10 @@ export default function KnowledgeBase() {
                                             </button>
                                         </li>
                                         <li className="nav-item">
-                                            <button className="nav-link d-flex align-items-center" data-bs-toggle="tab" data-bs-target="#add">
+                                            <button className="nav-link d-flex align-items-center" data-bs-toggle="tab" 
+                                                data-bs-target="#add"
+                                                onClick={() => tabsClick()}
+                                            >
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                                     fill="none"
                                                     stroke="currentColor"
@@ -747,8 +740,8 @@ export default function KnowledgeBase() {
                                         {savedKnowledgebaseData.length > 0 ? (
                                             savedKnowledgebaseData.map((KnowledgebaseData, index) => (
                                                 <div className="card" key={index}>
-                                                    <div className="card-header border-0 pb-0">
-                                                        <div className="d-flex justify-content-between">
+                                                    <div className="card-header border-0 pb-1">
+                                                        <div className="d-flex justify-content-between mobile-responsive">
                                                             <div className="flex-grow">
                                                                 <h5>{KnowledgebaseData.knowledgeBase_title }</h5>
                                                                 <div className="d-flex gap-2 pt-2 mb-3 align-items-center" style={{fontWeight:'700'}}>                                                                    
@@ -769,7 +762,7 @@ export default function KnowledgeBase() {
                                                                     </p>
                                                                 </div>
                                                             </div>
-                                                            <div className="d-flex gap-2">
+                                                            <div className="d-flex gap-2 d-none d-md-flex">
                                                                 {/* Edit Button */}
                                                                 <button
                                                                     type="button"
@@ -864,6 +857,59 @@ export default function KnowledgeBase() {
                                                                     );
                                                                 })()}
                                                             </p>
+
+                                                           <div> 
+                                                                <div className="d-flex gap-2 d-block d-md-none">
+                                                                {/* Edit Button */}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => editHandleToggle(index)}
+                                                                    className="custom-outline-btn btn d-inline-flex align-items-center justify-content-center gap-2 rounded px-3 py-2"
+                                                                >
+                                                                    <svg
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                        width="16"
+                                                                        height="16"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill="none"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2"
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        className="me-1"
+                                                                    >
+                                                                        <path d="M12 20h9"></path>
+                                                                        <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path>
+                                                                    </svg>
+                                                                </button>
+
+                                                                {/* Delete Button */}
+                                                                <button
+                                                                    type="button"
+                                                                    className="custom-outline-btn btn d-inline-flex align-items-center justify-content-center gap-2 rounded px-3 py-2 text-danger"
+                                                                    onClick={() => handleDeleteClick(KnowledgebaseData)}
+                                                                >
+                                                                    <svg
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                        width="16"
+                                                                        height="16"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill="none"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2"
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        className="me-1"
+                                                                    >
+                                                                        <path d="M3 6h18"></path>
+                                                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                                                        <line x1="10" x2="10" y1="11" y2="17"></line>
+                                                                        <line x1="14" x2="14" y1="11" y2="17"></line>
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                           </div>
                                                         </div>
                                                     </div>
 
@@ -877,62 +923,11 @@ export default function KnowledgeBase() {
                                                             <div className="d-flex justify-content-between align-items-center">
                                                                 <div>
                                                                     <h6 className="text-primary">Editing Entry</h6>
-                                                                </div>
-                                                                <div className="d-flex gap-2">                                                                   
-                                                                    <>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="btn btn-primary d-inline-flex align-items-center justify-content-center gap-1 rounded px-3 py-2"
-                                                                            onClick={() => handleSaveEdit(KnowledgebaseData.id, index)}
-                                                                            disabled={savingIndex === index}
-                                                                        >
-                                                                            {savingIndex === index ? (
-                                                                                <>
-                                                                                    <div
-                                                                                        className="spinner-border spinner-border-sm text-light"
-                                                                                        role="status"
-                                                                                        style={{ width: "1rem", height: "1rem" }}
-                                                                                    >
-                                                                                        <span className="sr-only">Loading...</span>
-                                                                                    </div>
-                                                                                    &nbsp;Saving
-                                                                                </>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <svg
-                                                                                        xmlns="http://www.w3.org/2000/svg"
-                                                                                        width="18"
-                                                                                        height="18"
-                                                                                        viewBox="0 0 24 24"
-                                                                                        fill="none"
-                                                                                        stroke="currentColor"
-                                                                                        strokeWidth="2"
-                                                                                        strokeLinejoin="round"
-                                                                                        className="lucide lucide-save h-4 w-4 me-2"
-                                                                                    >
-                                                                                        <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-                                                                                        <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
-                                                                                        <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
-                                                                                    </svg>
-                                                                                    Save
-                                                                                </>
-                                                                            )}
-                                                                        </button>
-                                                                        
-                                                                        <button
-                                                                            type="button"
-                                                                            className="custom-outline-btn btn d-inline-flex align-items-center justify-content-center gap-2 rounded px-3 py-2"
-                                                                            onClick={() => cancelEdit(index)} 
-                                                                            disabled={savingIndex === index}
-                                                                        >
-                                                                            Cancel
-                                                                        </button>                                                                        
-                                                                    </>                                                                    
-                                                                </div>
+                                                                </div>                                                                
                                                             </div>
                                                         </div>
 
-                                                        <div className="card-body">
+                                                        <div className="card-body pt-0">
                                                             <div className="form-group w-100">
                                                                 <label>Title</label>
                                                                 <input
@@ -950,7 +945,7 @@ export default function KnowledgeBase() {
                                                                         )
                                                                     }
                                                                 />
-                                                            </div>                                                        
+                                                            </div> 
 
                                                             <div className="form-group w-100 mt-3">
                                                                 <label>Content</label>
@@ -970,15 +965,16 @@ export default function KnowledgeBase() {
                                                                         )
                                                                     }
                                                                 />
-                                                            </div>                                                             
-                                                            <div className="card-body pt-0">                                         
-                                                                <p className="text-dark mb-0 mt-3 pb-2" style={{ fontSize: '14px' }}>
-                                                                    Select specific platforms and pages: 
-                                                                </p>                                                                
-                                                                <div className="card border form-group w-100">
-                                                                    <div className="card-header border-0 card-body">
-                                                                        <div className="container">
-                                                                            <div className="row "> 
+                                                            </div> 
+
+                                                            <div className="card-body pt-0 pl-0 mt-3 mobile-px-0">                                         
+                                                                <label>
+                                                                    Select specific platforms and pages:
+                                                                </label>                                                                
+                                                                <div className="card border form-group w-100 ">
+                                                                    <div className="card-header border-0 card-body  llllll custom-card-padding">
+                                                                        <div className="container px-2">
+                                                                            <div className="row"> 
                                                                                 <div
                                                                                     className={`card mb-0 border p-2 d-flex cursor-pointer rounded-3 bg-primary text-white col-md-12`}
                                                                                     data-bs-toggle="collapse"
@@ -1004,7 +1000,7 @@ export default function KnowledgeBase() {
                                                                                                 <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
                                                                                             </svg>
                                                                                             <span>Facebook</span>                                                                                            
-                                                                                                <span className="ml-2 px-2 py-1 rounded" style={{backgroundColor:'rgb(219 234 254)',fontSize:'.75rem', fontWeight:'500', color:'rgb(29 78 216)'}}>
+                                                                                                <span className="ml-2 px-2 py-1 rounded platform-selected" style={{backgroundColor:'rgb(219 234 254)',fontSize:'.75rem', fontWeight:'500', color:'rgb(29 78 216)'}}>
                                                                                                     Platform selected
                                                                                                 </span>                                                                                            
                                                                                         </div>                                                                       
@@ -1101,7 +1097,7 @@ export default function KnowledgeBase() {
                                                                                                                     >
                                                                                                                         {account.name}                                                                                                                        
                                                                                                                         {isSelected  && (
-                                                                                                                            <span className="text-xs text-green-600 dark:text-green-400 font-medium text-end" style={{marginLeft:'20px'}}>
+                                                                                                                            <span className="text-xs text-green-600 dark:text-green-400 font-medium text-end custom-ms" style={{marginLeft:'20px'}}>
                                                                                                                                 Account connected 
                                                                                                                             </span>
                                                                                                                         )}
@@ -1122,7 +1118,7 @@ export default function KnowledgeBase() {
                                                                                                                 {isExpanded && (
                                                                                                                     <motion.div
                                                                                                                         key={`pages-${account.id}`}
-                                                                                                                        className="ms-4 mt-2"
+                                                                                                                        className="ms-4 mt-2 card-custom-margin"
                                                                                                                         initial={{ height: 0, opacity: 0 }}
                                                                                                                         animate={{ height: "auto", opacity: 1 }}
                                                                                                                         exit={{ height: 0, opacity: 0 }}
@@ -1226,7 +1222,7 @@ export default function KnowledgeBase() {
                                                                                                                                             }}
                                                                                                                                         />
                                                                                                                                         {/* Page Name */}
-                                                                                                                                        <div className="d-flex justify-content-between align-items-center w-100"> 
+                                                                                                                                        <div className="d-flex justify-content-between align-items-center w-100 mobile-responsive"> 
                                                                                                                                             <span className="small fw-medium">{page.pageName}</span>
                                                                                                                                             {isDisabledByOtherEntry && (
                                                                                                                                                 <span className="text-xs text-red-600 dark:text-red-400 font-medium text-end text-danger">
@@ -1271,9 +1267,9 @@ export default function KnowledgeBase() {
                                                                         </div>
                                                                     </div>
                                                                 </div>                                                                                             
-                                                            </div>                                                            
+                                                            </div>                                                          
 
-                                                            <div className="form-group mt-3" style={{width:'35%',backgroundColor:'rgb(251, 246, 252)',padding:'15px'}}>
+                                                            <div className="form-group rounded-3 custom-width-100 " style={{width:'35%',backgroundColor:'rgb(251, 246, 252)',padding:'15px'}}>
                                                                 <div className="d-flex align-items-center justify-content-between mb-2"> 
                                                                     <div> 
                                                                         <label>Knowledge Base (Enable/Disable)</label>                                                                          
@@ -1305,6 +1301,60 @@ export default function KnowledgeBase() {
                                                                 <p className="f-m-light mt-1">
                                                                     Enable this if you want to automatically reply to message.
                                                                 </p>
+                                                            </div>
+
+                                                            <div className="d-flex justify-content-between align-items-center mt-3">
+                                                                <div></div>                                  
+                                                                <div className="d-flex gap-2">                                                                   
+                                                                    <>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-primary d-inline-flex align-items-center justify-content-center gap-1 rounded px-3 py-2"
+                                                                            onClick={() => handleSaveEdit(KnowledgebaseData.id, index)}
+                                                                            disabled={savingIndex === index}
+                                                                        >
+                                                                            {savingIndex === index ? (
+                                                                                <>
+                                                                                    <div
+                                                                                        className="spinner-border spinner-border-sm text-light"
+                                                                                        role="status"
+                                                                                        style={{ width: "1rem", height: "1rem" }}
+                                                                                    >
+                                                                                        <span className="sr-only">Loading...</span>
+                                                                                    </div>
+                                                                                    &nbsp;Saving
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <svg
+                                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                                        width="18"
+                                                                                        height="18"
+                                                                                        viewBox="0 0 24 24"
+                                                                                        fill="none"
+                                                                                        stroke="currentColor"
+                                                                                        strokeWidth="2"
+                                                                                        strokeLinejoin="round"
+                                                                                        className="lucide lucide-save h-4 w-4 me-2"
+                                                                                    >
+                                                                                        <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
+                                                                                        <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
+                                                                                        <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
+                                                                                    </svg>
+                                                                                    Save
+                                                                                </>
+                                                                            )}
+                                                                        </button>                                                                        
+                                                                        <button
+                                                                            type="button"
+                                                                            className="custom-outline-btn btn d-inline-flex align-items-center justify-content-center gap-2 rounded px-3 py-2"
+                                                                            onClick={() => cancelEdit(index)} 
+                                                                            disabled={savingIndex === index}
+                                                                        >
+                                                                            Cancel
+                                                                        </button>                                                                        
+                                                                    </>                                                                    
+                                                                </div>                                                                
                                                             </div>
 
                                                         </div>
@@ -1552,20 +1602,27 @@ export default function KnowledgeBase() {
                                                     />                                                    
                                                 </div>                                                
                                                 <p className="text-dark mb-0 mt-3 pb-2" style={{ fontSize: '14px' }}>
-                                                    Select specific platforms and pages: 
+                                                    Select specific platforms and pages:
                                                 </p>
                                                 {/* Facebook connected accounts */}
                                                 <div className="card border form-group w-100">
                                                     <div className="card-header border-0 card-body">
-                                                        <div className="container">
+                                                        <div className="container px-1">
                                                             <div className="row "> 
                                                                 <div
                                                                     className={`card mb-0 border p-2 d-flex cursor-pointer rounded-3  ${
-                                                                        isSelected("facebook") ? "bg-primary text-white col-md-10" : "col-md-12"
+                                                                        isSelected("facebook") ? "bg-primary text-white col-md-8 col-xl-10" : "col-md-12"
                                                                     }`}
                                                                     data-bs-toggle="collapse"
                                                                     href="#collapseFacebook"
-                                                                    onClick={() => selectPlatform("facebook")}
+                                                                    onClick={() => {
+                                                                        // toggle expansion state for facebook
+                                                                        setExpandedAccounts((prev) => ({
+                                                                        ...prev,
+                                                                        facebook: !prev.facebook,
+                                                                        }));
+                                                                        selectPlatform("facebook");
+                                                                    }}
                                                                     style={{ transition: "none" }}
                                                                 >
                                                                     <div 
@@ -1596,7 +1653,7 @@ export default function KnowledgeBase() {
                                                                     </div>                                                               
                                                                 </div>
                                                                 {isSelected("facebook") && (
-                                                                    <div className="col-md-2 text-end">
+                                                                    <div className="col-md-4 col-xl-2 text-end">
                                                                         <button
                                                                             className={`btn plateform-select-btn border rounded-3 ${
                                                                                 (() => {
@@ -1674,7 +1731,8 @@ export default function KnowledgeBase() {
                                                             </div>                                                           
 
                                                             {/* Collapse Content */}
-                                                            <div className="collapse mt-2" id="collapseFacebook">
+                                                            
+                                                            <div className={`collapse mt-2 ${expandedAccounts.facebook ? "show" : ""}`} id="collapseFacebook">
                                                                 <div>
                                                                     <div className="d-flex align-items-center justify-content-between my-3">
                                                                         <p className="text-muted small mb-0">
@@ -1810,7 +1868,7 @@ export default function KnowledgeBase() {
                                                                                                                     }}
                                                                                                                 />
                                                                                                                 {/* Page Name */}
-                                                                                                                <div className="d-flex justify-content-between align-items-center w-100"> 
+                                                                                                                <div className="d-flex justify-content-between align-items-center w-100 mobile-responsive"> 
                                                                                                                     <span className="small fw-medium">{page.pageName}</span>
                                                                                                                     {isDisabled  && (
                                                                                                                         <span className="text-xs text-green-600 dark:text-green-400 font-medium text-end">
@@ -1840,6 +1898,7 @@ export default function KnowledgeBase() {
                                                                     </div>
                                                                 </div>
                                                             </div>
+                                                            
                                                         </div>
                                                     </div>
                                                 </div>

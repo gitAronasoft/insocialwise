@@ -10,6 +10,8 @@ import DateRangePickerComponent from "./components/DateRangePickerComponent";
 import { getCustomStaticRanges } from "./utils/dateRanges";
 import { format, subDays, set } from "date-fns";
 import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import EditCampaignData from './components/EditCampaignData';
 
 export default function AdCampaignComponent() {
     ModuleRegistry.registerModules([AllCommunityModule]);
@@ -38,6 +40,14 @@ export default function AdCampaignComponent() {
     const navigate = useNavigate();
     const [showWarning, setShowWarning] = useState(false);
     const [showDanger, setShowDanger] = useState(false);
+
+    const [showEditCampaignModal, setShowEditCampaignModal] = useState(false);
+    const [showEditCampaignData, setShowEditCampaignData] = useState(null);
+    
+    const [campaignDataDeleteModal, setCampaignDataDeleteModal] = useState(false);
+    const [campaignDataToDelete, setcampaignDataToDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+    const [loadingRowId, setLoadingRowId] = useState(null);
 
     useEffect(() => {
         fetchAdsAccounts();
@@ -113,17 +123,56 @@ export default function AdCampaignComponent() {
         }
     }
 
-    const handleToggleStatus = (row, newStatus) => {
-        console.log(`Toggling status of ${row.campaign_name} to ${newStatus}`);
-
-        // Optional: API call or state update logic
-        // Example:
-        // axios.post('/api/campaign/update-status', {
-        //     campaignId: row.id,
-        //     status: newStatus
-        // })
-
-        // You may also update local state if needed
+    const handleToggleStatus = async (row, newStatus) => {
+        //console.log(`Toggling status of ${row.campaign_name} to ${newStatus}`);
+        const rowID = row.id;
+        const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+        const authToken = localStorage.getItem('authToken');        
+        const payload = {
+            dataID: row.id,
+            socialUserid: row.account_social_userid,
+            platform: 'facebook',
+            campaignID: row.campaign_id,
+            newStatus
+        };
+        try {
+            setLoadingRowId(rowID);
+            const response = await fetch(`${BACKEND_URL}/api/campaign/updateStatus`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if(data.success === true) {
+                setLoadingRowId(null);
+                return data.success === true;
+            } else if(data.success === false){
+                setLoadingRowId(null);
+                toast.error(`${data.message}`, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    autoClose: true,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    theme: "colored",
+                });
+            }  
+        } catch (err) {
+            //console.error("Network error while updating status:", err);
+            setLoadingRowId(null);
+            toast.error(`Network error while updating status`, {
+                position: 'top-right',
+                autoClose: 5000,
+                autoClose: true,
+                hideProgressBar: false,
+                closeOnClick: true,
+                theme: "colored",
+            });
+            return false;
+        }        
     };
 
     const handleView = (row) => {
@@ -132,14 +181,22 @@ export default function AdCampaignComponent() {
         navigate(`/ads-campaign-detail?asset_id=${campaignId}&ref=${socialUserId}`);
     };
 
+    const handleEditCloseModal = () => {
+        setShowEditCampaignModal(false);
+        setShowEditCampaignModal(null);
+    };
+
     const handleEdit = (row) => {
-        console.log('Edit clicked:', row);
-        // setShowCreateAdsModal(true);
+        //console.log('Edit campaign clicked:', row);
+        setShowEditCampaignData(row);
+        setShowEditCampaignModal(true);
         // You can pass the row data to the modal if needed
     }
 
     const handleDelete = (row) => {
-        console.log('Delete clicked:', row);
+        //console.log('Delete campaign:', row);
+        setcampaignDataToDelete(row);
+        setCampaignDataDeleteModal(true);        
     }
 
     const openActionMenu = (params) => {
@@ -219,28 +276,53 @@ export default function AdCampaignComponent() {
             filter: false,
             sort: 'asc',
             width: 150,
-            cellRenderer: (params) => (
-                <div className="d-flex align-items-center justify-content-center my-2">
-                    <div className="form-check form-switch d-flex align-items-center justify-content-center">
-                        <input className="form-check-input" type="checkbox" role="switch" id={`status-switch-${params.data.id}`}
-                            checked={params.value === 'ACTIVE'}
-                            onChange={(e) => {
-                                e.stopPropagation(); // prevent grid row selection
-                                const newStatus = e.target.checked ? 'ACTIVE' : 'PAUSED';
-                                handleToggleStatus(params.data, newStatus);
-                            }}
-                        />
-                        <label className="form-check-label ms-2 my-auto" htmlFor={`status-switch-${params.data.id}`} style={{ fontSize: '0.8rem', lineHeight: '1.2' }} >
-                            <span className={`badge ${params.value === 'ACTIVE' ? 'bg-success' : 'bg-secondary'}`}>
-                                {params.value === 'ACTIVE' ? 'Active' : 'Paused'}
-                            </span>
-                        </label>
+            cellRenderer: (params) => {
+                const isLoading = loadingRowId === params.data.id;
+                return (
+                    <div className="d-flex align-items-center justify-content-center my-2">                               
+                        {isLoading ? (
+                            <>
+                                <i className="fas fa-spin fa-spinner" style={{ fontSize: '15px',marginRight:'5px' }}></i> wait... 
+                            </>
+                        ) : (
+                            <div className="form-check form-switch d-flex align-items-center justify-content-center">
+                                <input className="form-check-input" type="checkbox" role="switch" id={`status-switch-${params.data.id}`}
+                                    checked={params.value === 'ACTIVE'}
+                                    onChange={async (e) => {
+                                        e.stopPropagation(); // prevent grid row selection
+                                        const newStatus = e.target.checked ? 'ACTIVE' : 'PAUSED';
+                                        // ⏳ WAIT FOR API RESPONSE
+                                        const success = await handleToggleStatus(params.data, newStatus);
+                                        if (!success) {                                    
+                                            params.api.refreshCells({
+                                                rowNodes: [params.node],
+                                                force: true
+                                            });
+                                            return;
+                                        }
+
+                                        // ✅ API SUCCESS — update AG-Grid row
+                                        params.api.applyTransaction({
+                                            update: [{
+                                                ...params.data,
+                                                campaign_effective_status: newStatus
+                                            }]
+                                        });                                
+                                    }}
+                                />
+                                <label className="form-check-label ms-2 my-auto" htmlFor={`status-switch-${params.data.id}`} style={{ fontSize: '0.8rem', lineHeight: '1.2' }} >
+                                    <span className={`badge ${params.value === 'ACTIVE' ? 'bg-success' : 'bg-secondary'}`}>
+                                        {params.value === 'ACTIVE' ? 'Active' : 'Paused'}
+                                    </span>
+                                </label>
+                            </div>
+                        )}
+                        {params.value === 'COMPLETED' &&
+                            <span className="text-success" style={{ lineHeight: '1.2', width: '100%', textAlign: 'center' }}>✔ Completed</span>
+                        }
                     </div>
-                    {params.value === 'COMPLETED' &&
-                        <span className="text-success" style={{ lineHeight: '1.2', width: '100%', textAlign: 'center' }}>✔ Completed</span>
-                    }
-                </div>
-            )
+                );
+            }
         },
         {
             headerName: 'Start Date',
@@ -700,13 +782,82 @@ export default function AdCampaignComponent() {
         return () => clearTimeout(timer);
     }, [selectedAdPlatform]);
 
+    const handleDeleteSubmit = async (e) => {
+        e.preventDefault();
+        setDeleting(true);
+        //console.log('campaignDataToDelete', campaignDataToDelete);
+        const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+        const authToken = localStorage.getItem('authToken');
+        try {
+            const payload = {                
+                ids: campaignDataToDelete.id,
+                socialUserid:campaignDataToDelete.account_social_userid,
+                accountid: campaignDataToDelete.ad_account_id,
+                campaign: campaignDataToDelete.campaign_id
+            };
+
+            const responseData = await fetch(`${BACKEND_URL}/api/campaign-delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const response = await responseData.json();
+            if(response.success===true){
+                // ✅ Remove the deleted campaign from the list
+                setCampaigns((prevCampaigns) => {
+                    if (!prevCampaigns) return [];
+                        return prevCampaigns.filter(
+                        (campaign) => campaign.campaign_id !== campaignDataToDelete.campaign_id
+                    );
+                });
+                setDeleting(false);
+                setCampaignDataDeleteModal(false);
+            } else if(response.success===false){
+                setDeleting(false);
+                toast.error(`${response.message}`, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    autoClose: true,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    theme: "colored",
+                });
+            } else {
+                setDeleting(false);
+                toast.error(`Internal server error.`, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    autoClose: true,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    theme: "colored",
+                });
+            }
+        } catch (err) {
+            console.error("Deletion failed:", err);
+            setDeleting(false);            
+            toast.error(`Failed to delete campaign.`, {
+                position: 'top-right',
+                autoClose: 5000,
+                autoClose: true,
+                hideProgressBar: false,
+                closeOnClick: true,
+                theme: "colored",
+            });
+        } 
+    };
+
     return (
         <div className="page-wrapper compact-wrapper" >
             <Header />
             <div className="page-body-wrapper">
                 <Sidebar />
                 {connectedAccount && connectedAccount.length > 0 ? (
-                    <div className="page-body">
+                    <div className="page-body">                        
                         {/* <div className="container-fluid">
                             <div className="page-title">
                                 <div className="row">
@@ -876,13 +1027,13 @@ export default function AdCampaignComponent() {
                                                     </div>
                                                 </div> */}
                                                 <div className='d-flex justify-content-start justify-content-sm-end'> 
-                                                <button type="button" className="btn btn-hover-effect btn-primary my-lg-3 
-                                                            d-flex align-items-center justify-content-center"
-                                                            onClick={() => setShowCreateAdsModal(true)}
-                                                        >
-                                                            <i className="fa-solid fa-plus fs-5 me-2"></i> Create ad campaign
-                                                        </button>
-                                                        </div>
+                                                    <button type="button" className="btn btn-hover-effect btn-primary my-lg-3 
+                                                        d-flex align-items-center justify-content-center"
+                                                        onClick={() => setShowCreateAdsModal(true)}
+                                                    >
+                                                        <i className="fa-solid fa-plus fs-5 me-2"></i> Create ad campaign
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -1144,7 +1295,7 @@ export default function AdCampaignComponent() {
                                                     <div className='mt-4'>
                                                         <div className='d-flex align-items-center justify-content-between'> 
                                                             <h6 className="text-dark mb-2"><strong>Ads Account Details</strong></h6>
-                                                            <div class="d-inline-flex align-items-center rounded-pill green-badge  fw-semibold small px-3"> Active </div>
+                                                            <div className="d-inline-flex align-items-center rounded-pill green-badge  fw-semibold small px-3"> Active </div>
                                                         </div>
                                                         <div className="d-flex align-items-center gap-2 mobile-responsive">
                                                             <small><b>ID:</b> {selectedAdPlatform.account_id}</small>
@@ -1160,7 +1311,7 @@ export default function AdCampaignComponent() {
                                                 {selectedAdPlatform ? (
                                                     <div className='card card-body mt-4'> 
                                                         <div className="col-md-12">
-                                                            <div class="row">
+                                                            <div className="row">
                                                                 <div className="col-md-6">
                                                                     <div className="row mt-2">
                                                                         {/* Total Spend */}
@@ -1229,7 +1380,7 @@ export default function AdCampaignComponent() {
                                                                 <div className="col-md-12 mt-3">
                                                                     {showWarning && (
                                                                         <div className="alert alert-warning alert-dismissible fade show" role="alert" style={{ padding: "5px 15px" }}>
-                                                                            <i class="fa-solid fa-circle-exclamation my-auto p-2"
+                                                                            <i className="fa-solid fa-circle-exclamation my-auto p-2"
                                                                                 style={{
                                                                                     background: 'goldenrod',
                                                                                     borderRadius: '50%'
@@ -1246,7 +1397,7 @@ export default function AdCampaignComponent() {
                                                                     {showDanger && (
                                                                         <div className="alert alert-danger alert-dismissible fade show" role="alert" style={{ padding: "5px 15px" }}>
                                                                             <div className="d-flex gap-3">
-                                                                                <i class="fas fa-exclamation-triangle my-auto p-2"
+                                                                                <i className="fas fa-exclamation-triangle my-auto p-2"
                                                                                     style={{
                                                                                         background: 'red',
                                                                                         borderRadius: '50%'
@@ -1310,12 +1461,12 @@ export default function AdCampaignComponent() {
                                                         </button>
                                                     </p>
 
-                                                    <div class="d-inline-flex align-items-center rounded-pill green-badge  fw-semibold small px-3"> Active </div>
+                                                    <div className="d-inline-flex align-items-center rounded-pill green-badge  fw-semibold small px-3"> Active </div>
                                                 </div>
 
                                                 {selectedAdPlatform ? (
                                                     <div className="col-md-12">
-                                                        <div class="row">
+                                                        <div className="row">
                                                             <div className="col-md-6">
                                                                 <div className="row mt-2">
                                                                    
@@ -1384,7 +1535,7 @@ export default function AdCampaignComponent() {
                                                             <div className="col-md-12 mt-3">
                                                                 {showWarning && (
                                                                     <div className="alert alert-warning alert-dismissible fade show" role="alert" style={{ padding: "5px 15px" }}>
-                                                                        <i class="fa-solid fa-circle-exclamation my-auto p-2"
+                                                                        <i className="fa-solid fa-circle-exclamation my-auto p-2"
                                                                             style={{
                                                                                 background: 'goldenrod',
                                                                                 borderRadius: '50%'
@@ -1401,7 +1552,7 @@ export default function AdCampaignComponent() {
                                                                 {showDanger && (
                                                                     <div className="alert alert-danger alert-dismissible fade show" role="alert" style={{ padding: "5px 15px" }}>
                                                                         <div className="d-flex gap-3">
-                                                                            <i class="fas fa-exclamation-triangle my-auto p-2"
+                                                                            <i className="fas fa-exclamation-triangle my-auto p-2"
                                                                                 style={{
                                                                                     background: 'red',
                                                                                     borderRadius: '50%'
@@ -1445,6 +1596,7 @@ export default function AdCampaignComponent() {
                                                                         resizable: true,
                                                                         filter: true
                                                                     }}
+                                                                    getRowId={(params) => params.data.id.toString()}
                                                                     getRowClass={(params) => {
                                                                         return params.node.rowIndex % 2 === 0 ? 'table-row-striped' : '';
                                                                     }}
@@ -1482,6 +1634,17 @@ export default function AdCampaignComponent() {
                                                                 </div>
                                                             )}
 
+                                                            {/* Start Open campaign edit model wiht pass data */}
+                                                            {showEditCampaignModal && (
+                                                                <EditCampaignData
+                                                                    show={showEditCampaignModal}
+                                                                    onHide={() => setShowEditCampaignModal(false)}
+                                                                    onClose={handleEditCloseModal}
+                                                                    CampaignData={showEditCampaignData}
+                                                                    editStepNumber={1}
+                                                                />                                                       
+                                                            )}
+                                                            {/* End Open campaign edit model wiht pass data */}
                                                         </div>
                                                     )}
                                                 </div>
@@ -1534,6 +1697,38 @@ export default function AdCampaignComponent() {
                         </div>
                     </div>
                 )}
+
+                {/* Delete confirmation modal */}
+                    {campaignDataDeleteModal && campaignDataToDelete && (
+                        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                            <div className="modal-content" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', maxWidth: '600px', width: '100%' }}>
+                                <h5>Delete confirmation</h5>
+                                <hr />
+                                <p className="mb-2">
+                                    <span className='text-danger'>Are you sure you want to delete the campaign:</span> <strong>"{campaignDataToDelete.campaign_name}"</strong> <span className='text-danger'>from {campaignDataToDelete.account_platform}?</span>
+                                </p>
+                                <form onSubmit={handleDeleteSubmit}>
+                                    <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                                        <button type="button" className="btn btn-secondary" onClick={() => setCampaignDataDeleteModal(false)} disabled={deleting}>
+                                            Cancel
+                                        </button>
+                                        <button type="submit" className="btn btn-danger" disabled={deleting}>
+                                            {deleting ? (
+                                                <div className="spinner-border spinner-border-sm text-light" role="status">
+                                                    <span className="visually-hidden">Deleting...</span>
+                                                </div>
+                                            ) : (
+                                                "Delete"
+                                            )}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )} 
+                {/* Delete confirmation modal */}                
+                              
                 <Footer />
             </div>
         </div>

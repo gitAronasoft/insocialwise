@@ -867,7 +867,7 @@ export default function AllPost() {
                                                                                 )}
                                                                             </div>
                                                                         </div> */}
-                                                                        <div>
+                                                                        <div className="w-100">
                                                                             <div className="d-flex justify-content-between p-2">
                                                                                 <div className="d-flex text-start">
                                                                                     <span>
@@ -927,8 +927,8 @@ export default function AllPost() {
                                                                                     {(() => {
                                                                                         try {
                                                                                             if (typeof post.postMedia === 'string') {
-                                                                                                if (post.postMedia.startsWith('https://')) {
-                                                                                                    return <img src={post.postMedia} alt="Post Media" className="post-image rounded" 
+                                                                                                if (post.postMedia.startsWith('https://')) { 
+                                                                                                    return <img src={post.postMedia} alt="Post Media" className="post-image rounded img-fluid " 
                                                                                                         onError={(e) => { e.target.src = `${process.env.PUBLIC_URL}/assets/images/placeholder_img.jpg`; }} />;
                                                                                                 } else {
                                                                                                     const media = typeof post.postMedia === 'string' ? 
@@ -1173,7 +1173,7 @@ export default function AllPost() {
                                                 {posts.slice(0, visiblePosts).map(post => (
                                                     <div key={post.id} className="card my-3 published-card-posts">
                                                         <div className="row card-body">
-                                                            <div className="col-md-12 col-xl-6">
+                                                            <div className="col-md-12 col-xl-12 col-xxl-6">
                                                                 <div className="d-flex align-items-center gap-3">
                                                                     <div style={{ position: "relative" }} >
                                                                         <span className={`badge bg-${post.status === '1' ? 'success' : post.status === '2' ? 'info' : 'warning' } text-capitalize`}
@@ -1267,9 +1267,9 @@ export default function AllPost() {
                                                                         <div className="d-flex align-items-center text-muted small gap-3 mb-2">
                                                                             <div className="d-flex">
                                                                                 <svg role="img" aria-label="Calendar" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                                                    <rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                                                                                    <path d="M16 3v4M8 3v4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                                                                    <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="1"/>
+                                                                                    <rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                                                                                    <path d="M16 3v4M8 3v4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                                                                    <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="1"/>
                                                                                 </svg>
                                                                                 <span className="my-auto ms-1"> {formatPostTimeForDisplay(post.sort_date_string)} </span>
                                                                             </div>
@@ -1299,8 +1299,8 @@ export default function AllPost() {
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div className="col-md-12 col-xl-6">
-                                                                <div className="d-flex align-items-center justify-content-between  mt-3 ">
+                                                            <div className="col-md-12 col-xl-12 col-xxl-6">
+                                                                <div className="d-flex align-items-center justify-content-between  mt-3 mobile-responsive">
                                                                     <div className="d-flex align-items-center text-muted small my-auto">
                                                                         {/* Likes */}
                                                                         <OverlayTrigger
@@ -1347,8 +1347,8 @@ export default function AllPost() {
                                                                         >
                                                                             <div className="d-flex align-items-center me-3" style={{ cursor: "pointer" }}>                                                                            
                                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
-                                                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" 
-                                                                                    stroke-linejoin="round" className="me-1"                                                                                    
+                                                                                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" 
+                                                                                    strokeLinejoin="round" className="me-1"                                                                                    
                                                                                 >
                                                                                     <circle cx="18" cy="5" r="3"></circle>
                                                                                     <circle cx="6" cy="12" r="3"></circle>
@@ -1369,8 +1369,8 @@ export default function AllPost() {
                                                                         >
                                                                             <div className="d-flex align-items-center me-3" style={{ cursor: "pointer" }}>                                                                            
                                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
-                                                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" 
-                                                                                    stroke-linejoin="round" className="me-1"                                                                                    
+                                                                                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" 
+                                                                                    strokeLinejoin="round" className="me-1"                                                                                    
                                                                                 >
                                                                                     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
                                                                                     <circle cx="9" cy="7" r="4"></circle>
@@ -1423,7 +1423,7 @@ export default function AllPost() {
                                                                         </OverlayTrigger>
                                                                     </div>
 
-                                                                    <div>
+                                                                    <div className="my-lg-3">
                                                                         <div className="d-flex gap-1 justify-content-between my-auto">
                                                                             {/* View Post Button */}
                                                                             {post.status === "1" ? (

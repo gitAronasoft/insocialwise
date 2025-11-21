@@ -1,9 +1,17 @@
 import React from 'react'
+import { useSidebar } from "../context/SidebarProvider";
 
 export default function Footer() {
+  const { isSidebarCollapsed } = useSidebar();
   const currentYear = new Date().getFullYear();
   return (
-    <footer className="footer page-footer w-100 container-fluid">
+    <footer className="footer page-footer w-100 container-fluid"
+      style={{
+        marginLeft: isSidebarCollapsed ? "100px" : "265px",
+        width: isSidebarCollapsed ? "calc(100% - 100px)" : "calc(100% - 265px)",
+        transition: "all 0.3s ease", // smooth animation
+      }}
+    >
       <div className="container-fluid">
         <div className="row">
           <div className="col-md-12 footer-copyright text-center">

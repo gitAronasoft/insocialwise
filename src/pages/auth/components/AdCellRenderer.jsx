@@ -103,8 +103,8 @@ const AdPreviewRenderer = ({ value, data, page_name, Campaign, AllAds }) => {
                 />
                 <div style={{lineHeight:"1.2"}} className="ms-2">
                     <strong>{value}</strong>
-                    <div class="small text-muted">
-                        <span class="badge bg-info">
+                    <div className="small text-muted">
+                        <span className="badge bg-info">
                             <small>{creative.creative_type != null ? creative.creative_type:"Unknown"}</small>
                         </span>
                     </div>

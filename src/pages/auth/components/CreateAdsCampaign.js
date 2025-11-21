@@ -2712,7 +2712,7 @@ const CreateAdsCampaign = ({ show, onHide, connectedAccount, updateConnectedAcco
                 </Modal.Body>            
                 <div className="modal-footer justify-content-between">
                     <button className="btn btn-secondary custom-back-btn" id="saveDraftBtn" disabled>Save as draft</button>
-                    <div class="d-flex w-100 my-lg-3">
+                    <div className="d-flex my-lg-3 custom-width-100">
                         {isBackStep && (
                             <button 
                                 className="btn btn-outline-secondary me-2 custom-back-btn" 
@@ -3414,7 +3414,7 @@ const CreateAdsCampaign = ({ show, onHide, connectedAccount, updateConnectedAcco
                                                             </div>
                                                             <div> 
                                                                 <svg width="25" height="16" viewBox="0 0 86 39" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                    <rect fill="transparent" x="1.75" y="1.75" width="75.5" height="35.5" rx="8.25" stroke="black" stroke-opacity="0.4" stroke-width="3.5"></rect>
+                                                                    <rect fill="transparent" x="1.75" y="1.75" width="75.5" height="35.5" rx="8.25" stroke="black" stroke-opacity="0.4" strokeWidth="3.5"></rect>
                                                                     <rect x="6.5" y="6.5" width="66" height="26" rx="5" fill="black">
                                                                     </rect>
                                                                     <path fill-rule="evenodd" clip-rule="evenodd" d="M81.5 26.5C83.9363 24.9844 85.5 22.6361 85.5 20C85.5 17.3639 83.9363 15.0156 81.5 13.5V26.5Z" fill="black" fill-opacity="0.6">

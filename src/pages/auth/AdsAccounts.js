@@ -75,8 +75,8 @@ export default function AdsAccounts() {
                                     <div className="card-body">
                                         <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
                                             <div>
-                                                <h5 class="mb-2"> Ads accounts </h5>
-                                                <p class="my-2"> These are the social ads accounts.</p>
+                                                <h5 className="mb-2"> Ads accounts </h5>
+                                                <p className="my-2"> These are the social ads accounts.</p>
                                             </div>
                                             <div>
                                                 <p>

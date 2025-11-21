@@ -269,7 +269,7 @@ const resendVerificationEmail = async (e) => {
                             <div className="envelope-icon">
                                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" fill="#3B82F6"></path>
-                                    <path d="M22 6L12 13L2 6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    <path d="M22 6L12 13L2 6" stroke="white" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"></path>
                                 </svg>
                             </div>
                             <h2>Almost there! Verify your email</h2>
@@ -309,9 +309,9 @@ const resendVerificationEmail = async (e) => {
                             ) : (
                                 <button className="btn-resend" onClick={resendVerificationEmail}>
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M23 4L23 10L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                        <path d="M1 20L1 14L7 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                        <path d="M3.51 9C4.01717 7.56678 4.87913 6.2854 6.01547 5.27542C7.1518 4.26543 8.52547 3.55976 10.0083 3.22426C11.4911 2.88875 13.0348 2.93434 14.4952 3.35677C15.9556 3.77921 17.2853 4.56471 18.36 5.64L23 10M1 14L5.64 18.36C6.71475 19.4353 8.04437 20.2208 9.50481 20.6432C10.9652 21.0657 12.5089 21.1112 13.9917 20.7757C15.4745 20.4402 16.8482 19.7346 17.9845 18.7246C19.1209 17.7146 19.9828 16.4332 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path d="M23 4L23 10L17 10" stroke="currentColor" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path d="M1 20L1 14L7 14" stroke="currentColor" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path d="M3.51 9C4.01717 7.56678 4.87913 6.2854 6.01547 5.27542C7.1518 4.26543 8.52547 3.55976 10.0083 3.22426C11.4911 2.88875 13.0348 2.93434 14.4952 3.35677C15.9556 3.77921 17.2853 4.56471 18.36 5.64L23 10M1 14L5.64 18.36C6.71475 19.4353 8.04437 20.2208 9.50481 20.6432C10.9652 21.0657 12.5089 21.1112 13.9917 20.7757C15.4745 20.4402 16.8482 19.7346 17.9845 18.7246C19.1209 17.7146 19.9828 16.4332 20.49 15" stroke="currentColor" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"></path>
                                     </svg>
                                     Resend Email
                                 </button>
@@ -320,15 +320,15 @@ const resendVerificationEmail = async (e) => {
                             <div className="tips">
                                 <div className="tip">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                        <path d="M12 8V12" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                        <path d="M12 16H12.01" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#6B7280" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path d="M12 8V12" stroke="#6B7280" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path d="M12 16H12.01" stroke="#6B7280" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"></path>
                                     </svg>
                                     <span>Check spam/junk folder</span>
                                 </div>
                                 <div className="tip">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M22 12H18L15 21L9 3L6 12H2" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path d="M22 12H18L15 21L9 3L6 12H2" stroke="#6B7280" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"></path>
                                     </svg>
                                     <span>Wrong email? <span className="start-over" onClick={handleStartOver} style={{cursor:'pointer'}}>Start over</span></span>
                                 </div>
@@ -417,7 +417,7 @@ const resendVerificationEmail = async (e) => {
                                         </defs>
                                         <rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="url(#instagram-gradient)"></rect>
                                         <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" fill="url(#instagram-gradient)"></path>
-                                        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" stroke="url(#instagram-gradient)" stroke-width="2"></line>
+                                        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" stroke="url(#instagram-gradient)" strokeWidth="2"></line>
                                     </svg>
                                 </div>
                                 <div className="connect-badge">

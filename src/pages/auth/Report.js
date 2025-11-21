@@ -71,7 +71,7 @@ export default function reports() {
                                                 </div>
                                                 {/* Right Content */}
                                                 <div className="text-end ms-3">
-                                                    <span class="primary-badge badge rounded-pill py-1">Weekly</span>
+                                                    <span className="primary-badge badge rounded-pill py-1">Weekly</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -108,7 +108,7 @@ export default function reports() {
                                                 </div>
                                                 {/* Right Content */}
                                                 <div className="text-end ms-3">
-                                                    <span class="primary-badge badge rounded-pill py-1">Monthly</span>
+                                                    <span className="primary-badge badge rounded-pill py-1">Monthly</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -138,7 +138,7 @@ export default function reports() {
                                                 </div>
                                                 {/* Right Content */}
                                                 <div className="text-end ms-3">
-                                                    <span class="primary-badge badge rounded-pill py-1">On-demand</span>
+                                                    <span className="primary-badge badge rounded-pill py-1">On-demand</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -168,7 +168,7 @@ export default function reports() {
                                                 </div>
                                                 {/* Right Content */}
                                                 <div className="text-end ms-3">
-                                                    <span class="primary-badge badge rounded-pill py-1">Monthly</span>
+                                                    <span className="primary-badge badge rounded-pill py-1">Monthly</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -526,7 +526,7 @@ export default function reports() {
                                                     <p className="fw-medium text-dark mb-0" style={{fontSize:'14px'}}>
                                                         Q1 Performance Review
                                                     </p>
-                                                    <div class="d-inline-flex align-items-center rounded-pill green-badge  fw-semibold small px-3"> 
+                                                    <div className="d-inline-flex align-items-center rounded-pill green-badge  fw-semibold small px-3"> 
                                                         Ready 
                                                     </div>
                                                 </div>
@@ -562,7 +562,7 @@ export default function reports() {
                                                     <p className="fw-medium text-dark mb-0" style={{fontSize:'14px'}}>
                                                         March Campaign Analysis
                                                     </p>
-                                                    <div class="d-inline-flex align-items-center rounded-pill green-badge  fw-semibold small px-3"> 
+                                                    <div className="d-inline-flex align-items-center rounded-pill green-badge  fw-semibold small px-3"> 
                                                         Ready 
                                                     </div>
                                                 </div>

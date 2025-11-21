@@ -66,43 +66,43 @@ const Profile = () => {
                                                    {/* <button className="change-pass-btn btn btn-primary">Change Password</button> */}
                                                     <button className="upload-btn">Upload Photo</button>
                                                    {/* <div className='d-flex align-items-center justify-content-center gap-4'> 
-                                                    <div> <a class="btn btn-primary btn-sm" href="#!"><i class="fa-solid fa-pencil"></i> Edit</a></div>
-                                                    <div><a class="btn btn-danger btn-sm" href="#!"><i class="fa-solid fa-trash"></i> Delete</a> </div>
+                                                    <div> <a className="btn btn-primary btn-sm" href="#!"><i className="fa-solid fa-pencil"></i> Edit</a></div>
+                                                    <div><a className="btn btn-danger btn-sm" href="#!"><i className="fa-solid fa-trash"></i> Delete</a> </div>
                                                    </div> */}
                                                 </div>
                                             </div>
                                             <div className='col-md-9'>
-                                                <div class="right-panel">
-                                                    <div class="form-grid">
-                                                        <div class="form-group">
+                                                <div className="right-panel">
+                                                    <div className="form-grid">
+                                                        <div className="form-group">
                                                             <label>First Name</label>
                                                             <input className='form-control' type="text" placeholder="Frist Name "  />
                                                         </div>
-                                                        <div class="form-group">
+                                                        <div className="form-group">
                                                             <label>Last name</label>
                                                             <input className='form-control' type="text" placeholder="Last Name"/>
                                                         </div>
-                                                        <div class="form-group">
+                                                        <div className="form-group">
                                                             <label> Email </label>
                                                             <input className='form-control' type="text" placeholder="Your Email" />
                                                         </div>
-                                                        <div class="form-group">
+                                                        <div className="form-group">
                                                             <label>Role</label>
                                                             <input className='form-control' type="text" placeholder="Role" />
                                                         </div>
-                                                        <div class="form-group">
+                                                        <div className="form-group">
                                                             <label>Status </label>
                                                             <input className='form-control' type="text" placeholder="Status" />
                                                         </div>
                                                     </div>
                                                     <div> 
                                                         <h6 className='my-3 pt-2'> Password </h6>
-                                                        <div class="form-grid">
-                                                            <div class="form-group">
+                                                        <div className="form-grid">
+                                                            <div className="form-group">
                                                                 <label>Old Password</label>
                                                                 <input type="password" className='form-control' placeholder="Old Password" />
                                                             </div>
-                                                            <div class="form-group">
+                                                            <div className="form-group">
                                                                 <label>New Password </label>
                                                                 <input type="password" className='form-control' placeholder="New Password" />
                                                             </div>

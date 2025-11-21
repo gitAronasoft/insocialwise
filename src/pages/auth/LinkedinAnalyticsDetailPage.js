@@ -22,6 +22,7 @@ import CommentSentimentComponent from './components/CommentSentimentComponent';
 import Carousel from "react-multi-carousel";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
+import SocialMediaPageScore from './components/SocialMediaPageScore';
 
 export default function LinkedinAnalyticsDetailPage() {
   const RunGetAnalyticsAPI = useRef(false);
@@ -54,6 +55,7 @@ export default function LinkedinAnalyticsDetailPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [commentsSentiment, setCommentsSentiment] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [socialScores, setSocialScore] = useState(null);
 
   const [locationOption, setlocationOptions] = useState({});
   const [locationSeries, setlocationSeries] = useState({});
@@ -157,7 +159,7 @@ export default function LinkedinAnalyticsDetailPage() {
               const formattedEnd = format(selectedDays[0].endDate, 'dd MMM yyyy');
               setshowSelectedDays(`Last 7 days: ${formattedStart} - ${formattedEnd}`);
               setShowCalendarFilterText('Last 7 days');
-
+              fetchSocialScore(connectedAccounts[0].socialPage[0].pageId);
               setPageLinkedinTotalFollowersCount(connectedAccounts[0].socialPage[0].total_followers);
               setSelectPage(connectedAccounts[0].socialPage[0]); 
               await fetchLinkedinAnalyticsData(connectedAccounts[0].socialPage[0].pageId);
@@ -599,6 +601,7 @@ export default function LinkedinAnalyticsDetailPage() {
 
   const handleSelectedPage = async(socialPage) => {
     if (!socialPage?.pageId || !socialPage?.token || !socialPage?.social_userid) return;
+    fetchSocialScore(socialPage?.pageId);
     setPageLinkedinTotalFollowersCount(socialPage.total_followers);
     setSelectPage(socialPage);
     await fetchLinkedinAnalyticsData(socialPage.pageId);
@@ -1918,6 +1921,28 @@ export default function LinkedinAnalyticsDetailPage() {
   }
   // End Delete selected comments
 
+  const fetchSocialScore = async (pageId) => {
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+    try {
+      const res = await axios.post(`${BACKEND_URL}/api/social-media-page-score`,
+        { page_id: pageId },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('authToken'),
+          }
+        }
+      );
+      console.log("response",res);
+      if(res.data.success === true){
+        console.log("Social Score Data: ", res.data.data);
+        setSocialScore(res.data.data);
+      }
+    } catch (err) {
+      console.error('Profile fetch failed:', err.response?.data || err.message);
+    }
+  }
+
   return (
     <div className="page-wrapper compact-wrapper mt-3">
       <Header />
@@ -2143,7 +2168,7 @@ export default function LinkedinAnalyticsDetailPage() {
                       </button>
                     </div>
                   </div>
-                   {fullScreenLoader ? (
+                  {fullScreenLoader ? (
                     <LinkedinDetailSkeleton activeTab={activeTab}/>
                   ):(   
                     <div className="tab-content p-3 rounded-bottom custom-bg-color mb-3" id="socialTabsContent"
@@ -2509,58 +2534,61 @@ export default function LinkedinAnalyticsDetailPage() {
                         </div>
 
                         <div className="row">
-                          <div className="col-md-12">
+                          <div className="col-md-12 col-lg-12 col-xl-12 col-xxl-8">
                             <div className="card sales-report">
                               <div className="card-header card-no-border">
                                 <div className="header-top">
                                   <h5>Social Analytics</h5>
-                                  <div className="card-header-right-icon">
-                                  </div>
+                                  {/* <div className="card-header-right-icon">
+                                  </div> */}
                                 </div>
                               </div>
                               <div className="card-body pt-0 analytics-data">
                                 <ul className="balance-data">
-                                  <li>
-                                    <span className="circle bg-primary"></span>
-                                    <span className="c-light ms-1">View</span>
-                                  </li>
-                                  <li>
-                                    <span className="circle bg-secondary"> </span>
-                                    <span className="c-light ms-1">Followers</span>
-                                  </li>
-                                  <li>
-                                    <span className="circle bg-success"></span>
-                                    <span className="c-light ms-1"> Impressions </span>
-                                  </li>
-                                  <li>
-                                    <span className="circle bg-dark"></span>
-                                    <span className="c-light ms-1">Reach</span>
-                                  </li>
-                                  <li>
-                                    <span className="circle bg-secondary"> </span>
-                                    <span className="c-light ms-1">Comments</span>
-                                  </li>
-                                  <li>
-                                    <span className="circle bg-danger"></span>
-                                    <span className="c-light ms-1">Likes</span>
-                                  </li>
+                                  <li><span className="circle bg-primary"></span><span className="c-light ms-1">View</span></li>
+                                  <li><span className="circle bg-secondary"> </span><span className="c-light ms-1">Followers</span></li>
+                                  <li><span className="circle bg-success"></span><span className="c-light ms-1">Impressions</span></li>
+                                  <li><span className="circle bg-dark"></span><span className="c-light ms-1">Reach</span></li>
+                                  <li><span className="circle bg-danger"></span><span className="c-light ms-1">Likes</span></li>
                                 </ul>
                                 <div className="social-tabs">
+                                  <div className="nav nav-pills custom-scrollbar" id="social-pills-tab" role="tablist"></div>
                                   <div className="tab-content" id="social-pills-tabContent" >
-                                    <div className="tab-pane fade show active" id="v-pills-linkedin" role="tabpanel" >
-                                      <div>
+                                    {/* <div className="tab-pane fade show active" id="v-pills-linkedin" role="tabpanel" >
+                                      <div> */}
                                         <Chart
                                           options={columnChartOptions}
                                           series={platformChartSeries.linkedin}
                                           type="bar"
-                                          height={350}
+                                          height={600}
                                         />
+                                      {/* </div>
+                                    </div> */}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="col-12 col-sm-12 col-md-12 col-xl-12 col-xxl-4">
+                            {!socialScores ? (
+                              <div className="card">
+                                <div className="card-body d-flex align-items-center justify-content-center flex-column text-center" style={{height:325}}>
+                                  <div className="align-middle">
+                                    <h5> Social Proformance Score </h5>
+                                    <div className="d-flex align-items-center justify-content-center flex-column text-center mt-2">
+                                      <div className=""> 
+                                        <p> Add a social account to unlock your personalized score and recommendations.</p> 
+                                      </div>
+                                      <div>
+                                        <button className="btn btn-hover-effect btn-primary d-flex align-items-center justify-content-center my-3"> <i className="fa-solid fa-plus fs-5 me-2"></i> Add a social account </button>
                                       </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
+                            ) : (
+                              <SocialMediaPageScore socialScores={socialScores} />
+                            )}
                           </div>
                         </div>
 
@@ -5001,7 +5029,7 @@ export default function LinkedinAnalyticsDetailPage() {
                         </div>
                       </div>
 
-                      <div className={`tab-pane fade ${activeTab === 'Calendar' ? "show active" : ""}`} id="Calendar" role="tabpanel" aria-labelledby="Calendar-tab">
+                      {/* <div className={`tab-pane fade ${activeTab === 'Calendar' ? "show active" : ""}`} id="Calendar" role="tabpanel" aria-labelledby="Calendar-tab">
                         <div className="row">
                           <div className="col-md-12">
                             <div className="card">
@@ -5033,7 +5061,7 @@ export default function LinkedinAnalyticsDetailPage() {
                                     </div>
                                   </div>
                                 </div>
-                                {/* calendar post selected */}
+                                
                                 {selectedEvent && (
                                   <div className="row">
                                     <div className="col-sm-8" style={{ margin: "0 auto" }} >
@@ -5145,12 +5173,163 @@ export default function LinkedinAnalyticsDetailPage() {
                                     </div>
                                   </div>
                                 )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div> */}
+
+                      <div className={`tab-pane fade ${activeTab === 'Calendar' ? "show active" : ""}`} id="Calendar" role="tabpanel" aria-labelledby="Calendar-tab">
+                        <div className="row">
+                          <div className="col-md-12">
+                            <div className="card">
+                              <div className="card-header card-no-border">
+                                <div className="header-top">
+                                  <h5>Scheduled Post </h5>
+                                </div>
+                              </div>
+                              <div className="card-body">
+                                <div className="sidebar-body">
+                                  <div className="row g-3 common-form custom-common-form">
+                                    <div style={{ height: "105vh" }}>
+                                      <Calendar
+                                        localizer={localizer}
+                                        events={posts}
+                                        startAccessor="start"
+                                        endAccessor="end"
+                                        onSelectEvent={handleSelectEvent}
+                                        eventPropGetter={eventStyleGetter}
+                                        popup={true}
+                                        components={{
+                                            event:CustomEvent,
+                                            agenda: {
+                                              event: AgendaEvent,
+                                            },
+                                        }}
+                                        views={["month", "agenda"]}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                                {/* calendar post selected */}
+                                {selectedEvent && (
+                                  <div className="row">
+                                    <div className="col-sm-8" style={{ margin: "0 auto" }} >
+                                      <Modal isOpen={isModalOpen} onRequestClose={handleCloseModal} shouldCloseOnOverlayClick={false} contentLabel="Event Details"
+                                        ariaHideApp={false} style={{
+                                          content: { top: "50%", left: "50%", right: "auto", bottom: "auto", transform: "translate(-50%, -50%)",
+                                            width: "40%", height: "60%", padding: "20px", borderRadius: "8px", backgroundColor: "white",
+                                            boxShadow: "0px 0px 10px rgba(0, 0, 0, 0.1)", zIndex: 9999, overflowY: "auto", scrollbarWidth: "none" },
+                                          overlay: { backgroundColor: "rgba(0, 0, 0, 0.5)", zIndex: 9998 },
+                                        }}
+                                      >
+                                        <div className="modal-content">
+                                          <div className="modal-body">
+                                            {selectPage ? (
+                                              <div className="d-flex align-items-center justify-content-between w-100">
+                                                <div className="preview-header">
+                                                  <img src={selectPage.page_picture} className="profile-pic-popup img-fluid" alt={selectPage.postPageName} />
+                                                  <div className="profile-info">
+                                                    <strong> {selectPage.pageName} </strong>
+                                                    <small className="text-info">
+                                                      Scheduled on:{" "}
+                                                      {moment(selectedEvent.start).format( "D MMMM YYYY [at] h:mm A" )}
+                                                    </small>
+                                                  </div>
+                                                </div>
+                                                <div className="d-flex justify-content-end">
+                                                  <div className="d-flex" style={{ paddingRight: 10 }} >
+                                                    <div className="dropdown hideArrow">
+                                                      <button className="btn btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                        <i className="fa fa-ellipsis-h"></i>
+                                                      </button>
+                                                      <ul className="dropdown-menu p-2 rounded-3 border-0">
+                                                        <li>
+                                                          <span className="dropdown-item rounded-3 border-0 mb-1" onClick={() => {handleEdit(selectedEvent.form_id)} } >
+                                                            <i className="fa fa-pencil me-1"></i>{" "} Edit Post
+                                                          </span>
+                                                        </li>
+                                                        <li style={{ cursor: "pointer" }} >
+                                                          <span className="dropdown-item rounded-3 border-0"
+                                                            onClick={() => {
+                                                              setPostToDelete(selectedEvent.postData);
+                                                              setShowDeleteModal(true);
+                                                            }}
+                                                          >
+                                                            <i className="fa fa-trash me-1"></i>{" "}
+                                                             Delete Post
+                                                          </span>
+                                                        </li>
+                                                      </ul>
+                                                    </div>
+                                                  </div>
+                                                  <div className="d-flex">
+                                                    <button className="btn btn-outline-danger" onClick={handleCloseModal} >
+                                                      <i className="fa fa-close"></i>
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <div className="row"></div>
+                                            )}
+                                            <div className="row">
+                                              <div className="post-content">
+                                                <div style={{ fontSize: "14px", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
+                                                  {selectedEvent?.content?.split(/\n+/).filter(line => line.trim() !== "").map((line, lineIndex) => (
+                                                      <p key={`line-${lineIndex}`} style={{ margin: "0 0 8px 0" }}>
+                                                        {line.split(/(#\w+)/g).map((part, partIndex) =>
+                                                          part.startsWith("#") && part.length > 1 ? (
+                                                            <span key={`tag-${lineIndex}-${partIndex}`} className="text-primary" style={{ fontWeight: 500 }} >
+                                                              {part}
+                                                            </span>
+                                                          ) : (
+                                                            <span key={`text-${lineIndex}-${partIndex}`}>{part}</span>
+                                                          )
+                                                        )}
+                                                      </p>
+                                                    ))}
+                                                </div>
+                                              </div>
+                                              {(() => {
+                                                try {
+                                                  if (typeof selectedEvent.postMedia === 'string') {
+                                                    if (selectedEvent.postMedia.startsWith('https://')) {
+                                                      return <img src={selectedEvent.postMedia} alt="Post Media" className="post-image" 
+                                                              onError={(e) => { e.target.src = `${process.env.PUBLIC_URL}/assets/images/placeholder_img.jpg`; }} />;
+                                                    } else {
+                                                      return renderMediaPreview(selectedEvent.platform, selectedEvent.postMedia);
+                                                    }
+                                                  }
+                                                } catch (err) {
+                                                  console.log("Post image rendering error: ",err);
+                                                }
+                                                return <img src={`${process.env.PUBLIC_URL}/assets/images/placeholder_img.jpg`} alt="Default" className="post-image" 
+                                                        onError={(e) => { e.target.src = `${process.env.PUBLIC_URL}/assets/images/placeholder_img.jpg`; }}/>;
+                                              })()}
+                                              <div className="linkedin-footer">
+                                                <div className="d-flex justify-content-between align-items-center">
+                                                  <span className="likes"><i className="far fa-thumbs-up"></i> Likes</span>
+                                                  <span className="comments"><i className="far fa-comment"></i> Comments</span>
+                                                  <span className="repost"><i className="fas fa-share-square"></i> Reposts</span>
+                                                  <span className="send"><i className="fas fa-paper-plane"></i> Shares</span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            
+                                          </div>
+                                        </div>
+                                      </Modal>
+                                    </div>
+                                  </div>
+                                )}
                                 {/* end calendar post selected */}
                               </div>
                             </div>
                           </div>
                         </div>
                       </div>
+
                     </div>
                   )}
                 </div>

@@ -2,10 +2,12 @@ import React, { useState, useEffect,useContext } from 'react';
 import { Link, useLocation, useNavigate  } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../context/AuthContext';
+import { useSidebar } from "../context/SidebarProvider";
 
 export default function Header() {  
   const location = useLocation(); 
   const navigate = useNavigate();
+  const { isSidebarCollapsed } = useSidebar();
   const { logout } = useContext(AuthContext);
 
   const [authInfo, setauthInfo] = useState(null);
@@ -59,13 +61,14 @@ export default function Header() {
     }
   };
 
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const toggleSidebar = () => {
-    setIsSidebarCollapsed(!isSidebarCollapsed);
-  };
-
   return (
-    <div className="page-header">
+    <div className="page-header"
+      style={{
+        marginLeft: isSidebarCollapsed ? "100px" : "265px",
+        width: isSidebarCollapsed ? "calc(100% - 100px)" : "calc(100% - 265px)",
+        transition: "all 0.3s ease", // smooth animation
+      }}
+     >
       <div className="header-wrapper row m-0">
         <form className="form-inline search-full col" action="#" method="get">
           <div className="form-group w-100">
@@ -102,7 +105,7 @@ export default function Header() {
               />
             </Link>
           </div>
-           <div className="toggle-sidebar" onClick={toggleSidebar}>
+           {/* <div className="toggle-sidebar" onClick={toggleSidebar}> */}
             {/* <i className="status_toggle middle sidebar-toggle" data-feather="align-center"></i> */}
 
             {/* <svg
@@ -122,9 +125,7 @@ export default function Header() {
             <rect x="14" y="14" width="7" height="7"></rect>
             <rect x="3" y="14" width="7" height="7"></rect>
           </svg> */}
-          </div>
-
-          
+          {/* </div> */}          
         </div>
         <div className="nav-right  col-12 pull-right right-header p-0">
           <div>

@@ -34,20 +34,10 @@ const InboxPage = () => {
         });
         socketRef.current = socket;
 
-        socket.on('connect', () => {
-            const uuid = JSON.parse(localStorage.getItem('userinfo'))?.userData?.uuid;
-            if (uuid) socket.emit('join_conversation', uuid);
-        });
+        /* join global room right after connect */
+        socket.emit('join_conversation', JSON.parse(localStorage.getItem('userinfo'))?.userData?.uuid);
 
-        return () => {
-            socket.off('connect');
-            socket.disconnect();
-        };
-
-        // /* join global room right after connect */
-        // socket.emit('join_conversation', JSON.parse(localStorage.getItem('userinfo'))?.userData?.uuid);
-
-        // return () => socket.disconnect();
+        return () => socket.disconnect();
     }, [BACKEND_URL]);
 
     useEffect(() => {
@@ -141,8 +131,7 @@ const InboxPage = () => {
                         return prev;
                     }
 
-                    return { ...prev, messages: [...(prev.messages || []), msg] };
-                    // return { ...prev, messages: [...prev.messages, msg] };
+                    return { ...prev, messages: [...prev.messages, msg] };
                 });
             }
         };
@@ -352,8 +341,9 @@ const InboxPage = () => {
                         </div>
                     )} 
                     {/* Header */}
+                    <div className='container-fluid'> 
                     <div className='page-title'>
-                        <div className="d-flex justify-content-between align-items-center">
+                        <div className="d-flex justify-content-between align-items-center mobile-responsive">
                             <div> 
                                 <h1 className="mb-0 h1-heading">Inbox Messages</h1>
                                 <p> Manage messages from all your social media platforms </p>
@@ -393,7 +383,7 @@ const InboxPage = () => {
                                 </div>
                             </div> */}
 
-                            <div style={{ display: 'flex', alignItems: 'center',}}>
+                            <div className='mobile-responsive' style={{ display: 'flex', alignItems: 'center',}}>
                                 <label htmlFor="pages-dropdown" className="my-auto" style={{ marginRight: 12, fontWeight: 500 }}>Select Platform:</label>
                                 <div ref={dropdownRef} className="position-relative">
                                     <div className="form-control pe-4 custom-select-input" onClick={() => setShowPlatformsList(!showPlatformList)}>
@@ -473,252 +463,402 @@ const InboxPage = () => {
 
                         </div>
                     </div>
-
-                    {/* Inbox Layout */}
-                   <div className="row inbox-container mb-3 px-2" style={{ height: '75vh' }}>
-                        {/* Sidebar */}
-                        {/* <div className="col-md-3 inbox-sidebar border-end" style={{ overflowY: 'auto', height: '100%' }}> */}
-                        <div className="col-md-4">
-                            <div className='card'>  
-                                <div className="d-flex justify-content-between align-items-center p-3 ">
-                                    <div className="d-flex gap-2 align-items-center"> 
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-circle h-4 w-4 mr-2"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
-                                    <h6 className="mb-0 h6-heading">Messages</h6>
-                                    </div>
-                                    <button className="btn btn-sm btn-light messages-filter-btn" onClick={() => setShowFilter(prev => !prev)}>
-                                        {/* <i className="fas fa-filter"></i> */}
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18 " height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-filter h-4 w-4"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                                    </button>
-                                </div>
-
-                                <div> 
-                                    <div className="search-container d-flex align-items-center gap-2 p-3 pt-0">
-                                        {/* <i className="fas fa-search search-icon"></i> */}
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search h-4 w-4 text-gray-400"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-                                        <input type="text" className="form-control search-input" placeholder="Search messages..." />
-                                    </div>
-                                </div>
-
-                                {showFilter && (
-                                    <div className="p-3 pt-0">
-                                        <label className="fw-semibold mb-1" style={{ fontSize: ".75rem" }}>Filter by Pages</label>
-                                        <select className="form-select" value={pageFilter} onChange={(e) => setPageFilter(e.target.value)}>
-                                            <option value="">All Pages</option>
-                                            {(selectedPlatform?.socialPage || []).filter((p) => p.status == "Connected").map((p) => (
-                                                <option key={p.pageId} value={p.pageId}>
-                                                    {p.pageName}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className='inbox-sidebar card'> 
-                                {filteredConversations.length === 0 ? (
-                                    <div className="p-4 text-center text-muted">
-                                        No messages yet.
-                                    </div>
-                                ) : (
-                                    filteredConversations.map((convo) => {
-                                        const isActive = selectedConversation?.conversation_id === convo.conversation_id;
-                                        return (
-                                            
-                                            <div key={convo.conversation_id}
-                                                onClick={async () => {
-                                                    await fetch(`${BACKEND_URL}/api/messages/mark-read/${convo.conversation_id}`, {
-                                                        method: 'PATCH',
-                                                        headers: { Authorization: `Bearer ${storedToken}` }
-                                                    });
-
-                                                    setConversations(p =>
-                                                        p.map(c =>
-                                                        c.conversation_id === convo.conversation_id
-                                                            ? { ...c, unreaded_messages: 0 }
-                                                            : c
-                                                        )
-                                                    );
-
-                                                    setSelectedConversation({
-                                                        ...convo,
-                                                        messages: [...(convo.messages || [])].sort(
-                                                            (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-                                                        )
-                                                    });
-                                                }}
-                                                className={`username-card rounded cursor-pointer d-flex align-items-center ${isActive ? '' : ''}`}
-                                                style={{ transition: 'background-color 0.2s', cursor: 'pointer',  }}
-                                            >
-                                                <div style={{ position: 'relative', width: 40, height: 40, marginRight: 14 }}>
-                                                    {/* Large Profile Image */}
-                                                    <AvatarWithSkeleton
-                                                        src={`${process.env.PUBLIC_URL}/assets/images/avtar/user.png`}
-                                                        alt="Page Avatar" className="rounded-circle"
-                                                        onError={e => {
-                                                            e.currentTarget.src = `${process.env.PUBLIC_URL}/assets/images/avtar/user.png`;
-                                                        }}
-                                                        style={{ width: '100%', height: '100%', objectFit: 'cover',
-                                                            border: isActive ? '2px solid #fff' : '2px solid #eee'
-                                                        }}
-                                                    />
-
-                                                    {/* Container for overlapping icons */}
-                                                    <div style={{ position: 'absolute', bottom: -4, right: -4 }}>
-                                                        {/* Page Icon (small image) - slightly overlapped */}
-                                                        <img src={convo.page_img || `${process.env.PUBLIC_URL}/assets/images/user/profile-img.png`}
-                                                            alt="Page Icon"
-                                                            onError={e => {
-                                                                e.currentTarget.src = `${process.env.PUBLIC_URL}/assets/images/user/profile-img.png`;
-                                                            }}
-                                                            style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #fff',
-                                                                objectFit: 'cover', position: 'absolute', bottom: -4, right: 0, zIndex: 1,
-                                                                boxShadow: '0 0 2px rgba(0, 0, 0, 0.2)'
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                                {/* Name + snippet */}
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div className="fw-bold d-flex justify-content-between align-items-center">
-                                                        <span className="text-truncate">
-                                                            {convo.external_username || 'Unknown'}
-                                                        </span>
-
-                                                        {/* <div className="d-flex gap-1 justify-content-between align-items-center" style={{ fontSize: "11px"}}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning">
-                                                                <circle cx="12" cy="12" r="10"></circle>
-                                                                <polyline points="12 6 12 12 16 14"></polyline>
-                                                            </svg>
-                                                            <span style={{ color: "rgb(107 114 128)"}}> 2 mins ago </span>
-                                                        </div> */}
-
-                                                        {/* ✅ Unread badge */}
-                                                        {convo.unreaded_messages > 0 && (
-                                                            <span className="chat-indicator-wrapper d-flex align-items-center">
-                                                                {/* <span className="unread-indicator animated-pulse" /> */}
-                                                                <span className="ms-1 small fw-semibold badge bg-danger">{convo.unreaded_messages}</span>
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="" style={{ color: isActive ? '#888' : '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                        {convo.messages?.[0]?.sender_type === 'page' ? 'You: ' : `${convo.external_username || 'User'}: `}
-                                                        {convo.snippet || 'No preview available'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                        );
-                                    })
-                                )}
-                            </div>
-                        
-                        </div>
-
-                        {/* Chat Window  */}
-                        <div className="col-md-8 custom-container bg-white" style={{ display: 'flex', flexDirection: 'column', height: '100%',borderRadius: '10px' }}>
-                           <div className='messages-scrolling' style={{margin:"auto 0px"}}>
-                                {!selectedConversation ? (
-                                    <div className="text-center text-muted mt-5">
-                                        {/* <h5>Select a conversation to view messages</h5> */}
-                                    <div className="d-flex flex-column gap-3 justify-content-center align-items-center">
-                                        <div className='mb-0'> 
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-circle h-12 w-12 text-gray-400 mx-auto"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg> 
-                                        </div>
-                                        <h5 className='h5-heading'> Please Select a Chat. </h5>
-                                        <div style={{ color:'rgb(107 114 128)', fontSize: '16px'}}>   Select a conversation to view messages   </div>
-                                    </div>
-                                        
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="mb-3 bg-white border-bottom p-3 rounded" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
-                                            <div className="d-flex gap-1">
-                                                <AvatarWithSkeleton
-                                                    src={`${process.env.PUBLIC_URL}/assets/images/avtar/user.png`}
-                                                    alt="Page Avatar" className="rounded-circle me-2"
-                                                    onError={e => {
-                                                        e.currentTarget.src = `${process.env.PUBLIC_URL}/assets/images/avtar/user.png`;
-                                                    }}
-                                                    style={{ width: '50px', height: '50px', objectFit: 'cover', border: '2px solid #fff', margin: "0px 10px" }}
-                                                />
-                                                <div>
-                                                    <h6 className="mb-1 h6-heading">{selectedConversation.external_username}</h6>
-                                                    <div className="small" style={{ color: 'rgb(107 114 128)',fontWeight:'400',fontSize:'14px'}}>
-                                                        <span className="">{selectedConversation.pageName}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {selectedConversation.messages?.length === 0 ? (
-                                            <div className="text-muted">No messages in this conversation yet.</div>
-                                        ) : (
-                                            <>
-                                            {Object.entries(groupMessagesByDate(selectedConversation.messages)).map(([dateLabel, msgs]) => (
-                                                <div key={dateLabel}>
-                                                    <div className="text-center text-muted mb-2 mt-3 fw-semibold">{dateLabel}</div>
-                                                    {msgs.map((msg, idx) => (
-                                                        <div key={idx} className={`mb-3 ${msg.sender_type === 'page' ? 'text-end' : 'text-start'}`}>
-                                                            <div className="d-inline-block px-3 py-2 rounded" style={{
-                                                                background: msg.sender_type === 'page' ? '#e0f7fa' : '#f1f1f1', maxWidth: '60%'
-                                                            }}>
-                                                                {msg.message_text}
-                                                            </div>
-                                                            <div className="small text-muted mt-1">
-                                                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ))}
-                                            <div ref={chatEndRef}></div>
-                                            </>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Input area */}
-                            {selectedConversation ? (
-                                <div style={{ padding: '12px 24px', borderTop: '1px solid #eee', background: '#fafafa' }}>
-                                    <form className="d-flex gap-2" action="javascript:void(0);" onSubmit={(e) => {
-                                            e.preventDefault();
-                                            sendMessage(); // 🔁 Trigger send on Enter or button
-                                        }}>
-                                        <input type="text" value={message} className="form-control" placeholder="Type a message..."
-                                            onChange={e => setMessage(e.target.value)} style={{ flex: 1 }}/>
-                                        <button type="submit" className="btn btn-primary messages-send-btn "> 
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send h-4 w-4"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg>
-                                        </button>
-                                    </form>
-                                </div>
-                            ) : (
-                                <div></div>
-                            )}
-                        </div>
-
-                        {/* Right Details Panel */}
-                        {/* <div className="col-md-3 border-start p-3">
-                            {selectedConversation ? (
-                                <>
-                                    <h6 className="mb-3">Person Details</h6>
-                                    <div className="mb-4">
-                                        <div className="fw-semibold">{selectedConversation.external_username}</div>
-                                        <div className="text-muted small">User ID: {selectedConversation.external_userid}</div>
-                                    </div>
-                                    <h6 className="mb-3">Page Info</h6>
-                                    <div>
-                                        <div className="text-muted small">Platform: <span className="bg-success text-light px-1 rounded"
-                                            >{selectedConversation.platform.toUpperCase() || 'Unknown'}</span></div>
-                                        <div className="text-muted small">Page Name: {selectedConversation.pageName}</div>
-                                        <div className="text-muted small">Conversation ID: {selectedConversation.conversation_id}</div>
-                                    </div>
-                                </>
-                            ) : (
-                                <h5 className="text-muted text-center">Please Select a Chat.</h5>
-                            )}
-                        </div> */}
                     </div>
+
+                   {/* Inbox Layout */}
+                    <div
+                    className={`row inbox-container mb-3 px-2 ${
+                        selectedConversation ? "chat-open" : ""
+                    }`}
+                    style={{ height: "75vh" }}
+                    >
+                    {/* Sidebar */}
+                    <div className="col-md-4">
+                        <div className="card">
+                        <div className="d-flex justify-content-between align-items-center p-3">
+                            <div className="d-flex gap-2 align-items-center">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="lucide lucide-message-circle h-4 w-4 mr-2"
+                            >
+                                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path>
+                            </svg>
+                            <h6 className="mb-0 h6-heading">Messages</h6>
+                            </div>
+                            <button
+                            className="btn btn-sm btn-light messages-filter-btn"
+                            onClick={() => setShowFilter((prev) => !prev)}
+                            >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="lucide lucide-filter h-4 w-4"
+                            >
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                            </svg>
+                            </button>
+                        </div>
+
+                        <div>
+                            <div className="search-container d-flex align-items-center gap-2 p-3 pt-0">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="lucide lucide-search h-4 w-4 text-gray-400"
+                            >
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.3-4.3"></path>
+                            </svg>
+                            <input
+                                type="text"
+                                className="form-control search-input"
+                                placeholder="Search messages..."
+                            />
+                            </div>
+                        </div>
+
+                        {showFilter && (
+                            <div className="p-3 pt-0">
+                            <label className="fw-semibold mb-1" style={{ fontSize: ".75rem" }}>
+                                Filter by Pages
+                            </label>
+                            <select
+                                className="form-select"
+                                value={pageFilter}
+                                onChange={(e) => setPageFilter(e.target.value)}
+                            >
+                                <option value="">All Pages</option>
+                                {(selectedPlatform?.socialPage || [])
+                                .filter((p) => p.status === "Connected")
+                                .map((p) => (
+                                    <option key={p.pageId} value={p.pageId}>
+                                    {p.pageName}
+                                    </option>
+                                ))}
+                            </select>
+                            </div>
+                        )}
+                        </div>
+
+                        <div className="inbox-sidebar card">
+                        {filteredConversations.length === 0 ? (
+                            <div className="p-4 text-center text-muted">No messages yet.</div>
+                        ) : (
+                            filteredConversations.map((convo) => {
+                            const isActive =
+                                selectedConversation?.conversation_id === convo.conversation_id;
+                            return (
+                                <div
+                                key={convo.conversation_id}
+                                onClick={async () => {
+                                    await fetch(
+                                    `${BACKEND_URL}/api/messages/mark-read/${convo.conversation_id}`,
+                                    {
+                                        method: "PATCH",
+                                        headers: { Authorization: `Bearer ${storedToken}` },
+                                    }
+                                    );
+                                    setConversations((p) =>
+                                    p.map((c) =>
+                                        c.conversation_id === convo.conversation_id
+                                        ? { ...c, unreaded_messages: 0 }
+                                        : c
+                                    )
+                                    );
+                                    setSelectedConversation({
+                                    ...convo,
+                                    messages: [...(convo.messages || [])].sort(
+                                        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+                                    ),
+                                    });
+                                }}
+                                className={`username-card rounded cursor-pointer d-flex align-items-center ${
+                                    isActive ? "active" : ""
+                                }`}
+                                style={{
+                                    transition: "background-color 0.2s",
+                                    cursor: "pointer",
+                                }}
+                                >
+                                <div
+                                    style={{
+                                    position: "relative",
+                                    width: 40,
+                                    height: 40,
+                                    marginRight: 14,
+                                    }}
+                                >
+                                    <AvatarWithSkeleton
+                                    src={`${process.env.PUBLIC_URL}/assets/images/avtar/user.png`}
+                                    alt="Page Avatar"
+                                    className="rounded-circle"
+                                    onError={(e) => {
+                                        e.currentTarget.src = `${process.env.PUBLIC_URL}/assets/images/avtar/user.png`;
+                                    }}
+                                    style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        objectFit: "cover",
+                                        border: isActive ? "2px solid #fff" : "2px solid #eee",
+                                    }}
+                                    />
+                                    <div style={{ position: "absolute", bottom: -4, right: -4 }}>
+                                    <img
+                                        src={
+                                        convo.page_img ||
+                                        `${process.env.PUBLIC_URL}/assets/images/user/profile-img.png`
+                                        }
+                                        alt="Page Icon"
+                                        onError={(e) => {
+                                        e.currentTarget.src = `${process.env.PUBLIC_URL}/assets/images/user/profile-img.png`;
+                                        }}
+                                        style={{
+                                        width: 20,
+                                        height: 20,
+                                        borderRadius: "50%",
+                                        border: "2px solid #fff",
+                                        objectFit: "cover",
+                                        position: "absolute",
+                                        bottom: -4,
+                                        right: 0,
+                                        zIndex: 1,
+                                        boxShadow: "0 0 2px rgba(0, 0, 0, 0.2)",
+                                        }}
+                                    />
+                                    </div>
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div className="fw-bold d-flex justify-content-between align-items-center">
+                                    <span className="text-truncate">
+                                        {convo.external_username || "Unknown"}
+                                    </span>
+                                    {convo.unreaded_messages > 0 && (
+                                        <span className="ms-1 small fw-semibold badge bg-danger">
+                                        {convo.unreaded_messages}
+                                        </span>
+                                    )}
+                                    </div>
+                                    <div
+                                    className=""
+                                    style={{
+                                        color: "#888",
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                    }}
+                                    >
+                                    {convo.messages?.[0]?.sender_type === "page"
+                                        ? "You: "
+                                        : `${convo.external_username || "User"}: `}
+                                    {convo.snippet || "No preview available"}
+                                    </div>
+                                </div>
+                                </div>
+                            );
+                            })
+                        )}
+                        </div>
+                    </div>
+
+                    {/* Chat Window */}
+                    <div
+                        className="col-md-8 custom-container bg-white justify-content-center "
+                        style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        height: "100%",
+                        borderRadius: "10px",
+                        }}
+                    >
+                        {!selectedConversation ? (
+                        <div className="text-center text-muted mt-5 d-none d-md-block">
+                            <div className="d-flex flex-column gap-3 justify-content-center align-items-center">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="34"
+                                height="34"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="lucide lucide-message-circle h-12 w-12 text-gray-400 mx-auto"
+                            >
+                                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path>
+                            </svg>
+                            <h5 className="h5-heading">Please Select a Chat.</h5>
+                            <div style={{ color: "rgb(107 114 128)", fontSize: "16px" }}>
+                                Select a conversation to view messages
+                            </div>
+                            </div>
+                        </div>
+                        ) : (
+                        <>
+                            {/* ✅ Sticky Header with Back Button */}
+                            <div
+                            className="mb-3 bg-white border-bottom p-3 rounded d-flex align-items-center"
+                            style={{ position: "sticky", top: 0, zIndex: 5 }}
+                            >
+                            <button
+                                className="chat-back-btn d-md-none me-2"
+                                onClick={() => setSelectedConversation(null)}
+                            >
+                                <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="lucide lucide-arrow-left"
+                                >
+                                <path d="M19 12H5"></path>
+                                <path d="M12 19l-7-7 7-7"></path>
+                                </svg>
+                            </button>
+
+                            <AvatarWithSkeleton
+                                src={`${process.env.PUBLIC_URL}/assets/images/avtar/user.png`}
+                                alt="Page Avatar"
+                                className="rounded-circle me-2"
+                                onError={(e) => {
+                                e.currentTarget.src = `${process.env.PUBLIC_URL}/assets/images/avtar/user.png`;
+                                }}
+                                style={{
+                                width: "50px",
+                                height: "50px",
+                                objectFit: "cover",
+                                border: "2px solid #fff",
+                                margin: "0px 10px",
+                                }}
+                            />
+                            <div>
+                                <h6 className="mb-1 h6-heading">
+                                {selectedConversation.external_username}
+                                </h6>
+                                <div
+                                className="small"
+                                style={{
+                                    color: "rgb(107 114 128)",
+                                    fontWeight: "400",
+                                    fontSize: "14px",
+                                }}
+                                >
+                                <span>{selectedConversation.pageName}</span>
+                                </div>
+                            </div>
+                            </div>
+
+                            {/* Chat Messages */}
+                            <div className="messages-scrolling flex-grow-1 px-3">
+                            {selectedConversation.messages?.length === 0 ? (
+                                <div className="text-muted text-center mt-5">
+                                No messages in this conversation yet.
+                                </div>
+                            ) : (
+                                <>
+                                {Object.entries(
+                                    groupMessagesByDate(selectedConversation.messages)
+                                ).map(([dateLabel, msgs]) => (
+                                    <div key={dateLabel}>
+                                    <div className="text-center text-muted mb-2 mt-3 fw-semibold">
+                                        {dateLabel}
+                                    </div>
+                                    {msgs.map((msg, idx) => (
+                                        <div
+                                        key={idx}
+                                        className={`mb-3 ${
+                                            msg.sender_type === "page" ? "text-end" : "text-start"
+                                        }`}
+                                        >
+                                        <div
+                                            className="d-inline-block px-3 py-2 rounded message-bubble"
+                                            style={{
+                                            background:
+                                                msg.sender_type === "page"
+                                                ? "#e0f7fa"
+                                                : "#f1f1f1",
+                                            maxWidth: "60%",
+                                            }}
+                                        >
+                                            {msg.message_text} 
+
+                                             <div className="small text-muted mt-1">
+                                            {new Date(msg.timestamp).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                            hour12: true,
+                                            })}
+                                        </div>
+                                        </div>
+                                        {/* <div className="small text-muted mt-1">
+                                            {new Date(msg.timestamp).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                            hour12: true,
+                                            })}
+                                        </div> */}
+                                        </div>
+                                    ))}
+                                    </div>
+                                ))}
+                                <div ref={chatEndRef}></div>
+                                </>
+                            )}
+                            </div>
+
+                            {/* Input Area */}
+                            <div className="chat-input-area py-2  border-top">
+                            <form
+                                className="d-flex gap-2"
+                                onSubmit={(e) => {
+                                e.preventDefault();
+                                sendMessage();
+                                }}
+                            >
+                                <input
+                                type="text"
+                                value={message}
+                                className="form-control"
+                                placeholder="Type a message..."
+                                onChange={(e) => setMessage(e.target.value)}
+                                />
+                                <button type="submit" className="btn btn-primary messages-send-btn">
+                                <i className="fas fa-paper-plane"></i>
+                                </button>
+                            </form>
+                            </div>
+                        </>
+                        )}
+                    </div>
+                    </div>
+
                 </div>
                 <Footer />
             </div>

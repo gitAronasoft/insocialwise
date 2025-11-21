@@ -153,8 +153,21 @@ export default function AccountSetup() {
         setStep(2);    
     }; 
     
-    const clickAddMoreLater = () => {
-        navigate('/dashboard');    
+    const clickAddMoreLater = async () => {
+        const userInfo = localStorage.getItem('userinfo');
+        const userUUID = userInfo.userData.uuid
+        setTimeout(async () => {
+            try {
+                await axios.post(`https://n8n.insocialwise.com/webhook/create-social-score`, {
+                    user_uuid: userUUID
+                });
+                console.log("Webhook sent successfully");
+            } catch (error) {
+                console.error("Error sending webhook:", error);
+            }
+        }, 20000);
+
+        navigate('/dashboard');
     };
 
 

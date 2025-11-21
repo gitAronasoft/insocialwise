@@ -644,8 +644,8 @@ export default function PagesAnalytics() {
                                                             <span className="common-align gap-1 justify-content-start">
                                                                 <svg
                                                                     xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                                    stroke-linejoin="round" className="feather feather-trending-up txt-success">
+                                                                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                                                                    strokeLinejoin="round" className="feather feather-trending-up txt-success">
                                                                     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
                                                                     <polyline points="17 6 23 6 23 12"></polyline>
                                                                 </svg>
@@ -678,8 +678,8 @@ export default function PagesAnalytics() {
                                                             <span className="common-align gap-1 justify-content-start">
                                                                 <svg
                                                                     xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                                    stroke-linejoin="round" className="feather feather-trending-up txt-success">
+                                                                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                                                                    strokeLinejoin="round" className="feather feather-trending-up txt-success">
                                                                     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
                                                                     <polyline points="17 6 23 6 23 12"></polyline>
                                                                 </svg>
@@ -717,8 +717,8 @@ export default function PagesAnalytics() {
                                                             <span className="common-align gap-1 justify-content-start">
                                                                 <svg
                                                                     xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                                    stroke-linejoin="round" className="feather feather-trending-up txt-success">
+                                                                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                                                                    strokeLinejoin="round" className="feather feather-trending-up txt-success">
                                                                     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
                                                                     <polyline points="17 6 23 6 23 12"></polyline>
                                                                 </svg>
@@ -751,8 +751,8 @@ export default function PagesAnalytics() {
                                                             <span className="common-align gap-1 justify-content-start">
                                                                 <svg
                                                                     xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                                    stroke-linejoin="round" className="feather feather-trending-up txt-success">
+                                                                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                                                                    strokeLinejoin="round" className="feather feather-trending-up txt-success">
                                                                     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
                                                                     <polyline points="17 6 23 6 23 12"></polyline>
                                                                 </svg>
@@ -830,8 +830,8 @@ export default function PagesAnalytics() {
                                     <div className="card-body pt-0">
                                         <div className="common-flex">
                                             <h6>Total: {analytics?.totals?.total_page_views}</h6>
-                                            <div class="d-flex">
-                                                <p>( <span class="txt-success f-w-500 me-1">+6.7%</span>vs last week)</p>
+                                            <div className="d-flex">
+                                                <p>( <span className="txt-success f-w-500 me-1">+6.7%</span>vs last week)</p>
                                             </div>
                                         </div>
                                         <div className="common-m-chart">
@@ -887,7 +887,7 @@ export default function PagesAnalytics() {
                                                         </td>
                                                         <td className='f-w-500'>10,000</td>
                                                         <td>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="feather feather-trending-up me-1 font-success"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg> 
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trending-up me-1 font-success"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg> 
                                                         </td>
                                                     </tr>
                                                     <tr>
@@ -900,7 +900,7 @@ export default function PagesAnalytics() {
                                                         </td>
                                                         <td className='f-w-500'>10,000</td>
                                                         <td>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="feather feather-trending-up me-1 font-success"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg> 
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trending-up me-1 font-success"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg> 
                                                         </td>
                                                     </tr>
                                                     <tr>
@@ -913,7 +913,7 @@ export default function PagesAnalytics() {
                                                         </td>
                                                         <td className='f-w-500'>10,000</td>
                                                         <td>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="feather feather-trending-up me-1 font-success"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg> 
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trending-up me-1 font-success"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg> 
                                                         </td>
                                                     </tr>
                                                     

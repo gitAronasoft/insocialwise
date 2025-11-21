@@ -32,153 +32,312 @@ export default function AdCampaignDetailPage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [adSelectedData, setSelectedAdData] = useState(null);
 
-    const handleCampaignToggleStatus = (row, newStatus) => {
-        console.log(`Toggling Campaign status to ${newStatus}`);
+    const [dataDeleteModal, setDataDeleteModal] = useState(false);
+    const [dataToDelete, setDataToDelete] = useState(
+        { 
+            deleteType: '', 
+            deleteData: null
+        }
+    );    
+    const [deleting, setDeleting] = useState(false);
+    const [loadingRowId, setLoadingRowId] = useState(null);
 
-        // Optional: API call or state update logic
-        // Example:
-        // axios.post('/api/campaign/update-status', {
-        //     campaignId: row.id,
-        //     status: newStatus
-        // })
+    const handleCampaignToggleStatus = async (row, newStatus) => {
+        //console.log(`Toggling Campaign status to, ${row} ${newStatus}`);
+        //console.log('CampaignData: ', CampaignData);
+        const rowID = row.id;
+        const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+        const authToken = localStorage.getItem('authToken');        
+        const payload = {
+            dataID: row.id,
+            socialUserid: row.account_social_userid,
+            platform: 'facebook',
+            campaignID: row.campaign_id,
+            newStatus
+        };
 
-        // You may also update local state if needed
-        setCampaignData(prev => ({
-            ...prev,
-            campaign_effective_status: newStatus
-        }));
+        try {
+            setLoadingRowId(rowID);
+            const response = await fetch(`${BACKEND_URL}/api/campaign/updateStatus`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if(data.success === true)  {
+                setCampaignData(prev => ({
+                    ...prev,
+                    campaign_effective_status: newStatus
+                }));
+                setLoadingRowId(null);
+                toast.success(`${data.message}`, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    autoClose: true,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    theme: "colored",
+                });
+            } else if(data.success === false){
+                setLoadingRowId(null);
+                toast.error(`${data.message}`, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    autoClose: true,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    theme: "colored",
+                });
+            } 
+        } catch (err) {
+            setLoadingRowId(null);
+            console.error("Network error while updating status:", err);
+            toast.error(`Network error while updating status.`, {
+                position: 'top-right',
+                autoClose: 5000,
+                autoClose: true,
+                hideProgressBar: false,
+                closeOnClick: true,
+                theme: "colored",
+            });
+            return false;
+        }      
     };
 
-    const handleAdsetsToggleStatus = (row, newStatus) => {
-        console.log(`Toggling Adsets status of ${row.adsets_name} to ${newStatus}`);
+    const handleAdsetsToggleStatus = async (row, newStatus) => {
+        //console.log(`Toggling Adsets status of ${row.adsets_name} to ${newStatus}`);
+        const rowID = row.id;
+        const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+        const authToken = localStorage.getItem('authToken');        
+        const payload = {
+            dataID: row.id,
+            socialUserid: row.account_social_userid,
+            platform: 'facebook',
+            adsetsID: row.adsets_id,
+            newStatus
+        };
 
-        // Optional: API call or state update logic
-        // Example:
-        // axios.post('/api/campaign/update-status', {
-        //     campaignId: row.id,
-        //     status: newStatus
-        // })
-
-        // You may also update local state if needed
+        try {
+            setLoadingRowId(rowID);
+            const response = await fetch(`${BACKEND_URL}/api/adsets/updateStatus`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if(data.success === true) {
+                setLoadingRowId(null);
+                return data.success === true;
+            } else if(data.success === false){
+                setLoadingRowId(null);
+                toast.error(`${response.message}`, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    autoClose: true,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    theme: "colored",
+                });
+            }      
+        } catch (err) {
+            //console.error("Network error while updating status:", err);
+            setLoadingRowId(null);
+            toast.error(`Network error while updating status`, {
+                position: 'top-right',
+                autoClose: 5000,
+                autoClose: true,
+                hideProgressBar: false,
+                closeOnClick: true,
+                theme: "colored",
+            });
+            return false;
+        }        
     };
 
-    const handleAdsToggleStatus = (row, newStatus) => {
-        console.log(`Toggling Ads status of ${row.ads_name} to ${newStatus}`);
-
-        // Optional: API call or state update logic
-        // Example:
-        // axios.post('/api/campaign/update-status', {
-        //     campaignId: row.id,
-        //     status: newStatus
-        // })
-
-        // You may also update local state if needed
+    const handleAdsToggleStatus = async (row, newStatus) => {
+        //console.log(`Toggling Ads status of ${row.ads_name} to ${newStatus}`);
+        const rowID = row.id;
+        const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+        const authToken = localStorage.getItem('authToken');        
+        const payload = {
+            dataID: row.id,
+            socialUserid: row.account_social_userid,
+            platform: 'facebook',
+            adsID: row.ads_id,
+            newStatus
+        };
+        try {
+            setLoadingRowId(rowID);
+            const response = await fetch(`${BACKEND_URL}/api/ads/updateStatus`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if(data.success === true) {
+                setLoadingRowId(null);
+                return data.success === true;
+            } else if(data.success === false){
+                setLoadingRowId(null);
+                toast.error(`${response.message}`, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    autoClose: true,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    theme: "colored",
+                });
+            }
+        } catch (err) {
+            console.error("Network error while updating status:", err);
+            setLoadingRowId(null);
+            toast.error(`Network error while updating status.`, {
+                position: 'top-right',
+                autoClose: 5000,
+                autoClose: true,
+                hideProgressBar: false,
+                closeOnClick: true,
+                theme: "colored",
+            });
+            return false;
+        }
     };
 
     useEffect(() => {
         if (!campaignID) {
-            toast.error('Campaign ID is missing in the URL');
+            toast.error(`Campaign ID is missing in the URL`, {
+                position: 'top-right',
+                autoClose: 5000,
+                autoClose: true,
+                hideProgressBar: false,
+                closeOnClick: true,
+                theme: "colored",
+            });
+            //toast.error('Campaign ID is missing in the URL');
             return;
-        }
-
-        const fetchCampaignDetails = async () => {
-            const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-            const storedToken = localStorage.getItem('authToken');
-
-            try {
-                const response = await axios.post(
-                    `${BACKEND_URL}/api/campaign-ads-details`,
-                    { campaignId: campaignID, socialUserId: socialUserID },
-                    {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${storedToken}`
-                        }
-                    }
-                );
-                if (response.data.success) {
-                    const { campaign, adsets, adsets_ads, ads_creative, ad_account } = response.data.data;
-                    // const activeAdsets = adsets.filter(item => item.adsets_status === 'ACTIVE');
-
-                    // const campaign_custom_lifetime_budget = activeAdsets.reduce((total, item) => {
-                    //     const lifetime = Number(item.adsets_lifetime_budget) || 0;
-                    //     const daily = Number(item.adsets_daily_budget) || 0;
-                    //     const spend = Number(item.adsets_insights_spend) || 0;
-
-                    //     const budget = lifetime > 0
-                    //         ? lifetime
-                    //         : (daily > 0 ? daily : spend); // fallback to spend if both budgets are 0
-
-                    //     return total + budget;
-                    // }, 0);
-
-                    // const campaign_custom_daily_budget = activeAdsets.reduce((total, item) => {
-                    //     const daily = Number(item.adsets_daily_budget) || 0;
-                    //     const lifetime = Number(item.adsets_lifetime_budget) || 0;
-                    //     const spend = Number(item.adsets_insights_spend) || 0;
-
-                    //     const budget = daily > 0
-                    //         ? daily
-                    //         : (lifetime > 0 ? 0 : spend); // use spend only if both are 0
-
-                    //     return total + budget;
-                    // }, 0);
-
-                    // // Append these to the campaign object
-                    // const updatedCampaign = {
-                    //     ...campaigns,
-                    //     campaign_custom_lifetime_budget,
-                    //     campaign_custom_daily_budget
-                    // };
-
-                    setCampaignData(campaign);
-                    setAdsets(adsets);
-                    setAdsetsAds(adsets_ads);
-                    setAdsCreatives(ads_creative);
-                    setSelectAdPlatform(ad_account);
-                    // console.log("UpdatedCampaignData:", updatedCampaign);
-
-                    const uniqueCountries = [...new Set(adsets.map(item => item.adsets_countries).filter(Boolean))];
-                    const uniqueGenders = [...new Set(adsets.map(item => item.adsets_genders).filter(g => g !== null && g !== undefined))];
-
-                    const minAge = Math.min(...adsets.map(a => Number(a.adsets_age_min) || 0));
-                    const maxAge = Math.max(...adsets.map(a => Number(a.adsets_age_max) || 0));
-
-                    const campaignAudience = {
-                        age_range: `${minAge} - ${maxAge}`,
-                        countries: uniqueCountries.join(', ') || 'N/A',
-                        gender: (() => {
-                            const values = uniqueGenders;
-                            if (values.includes(0)) return 'All';
-                            if (values.includes(1)) return 'Male';
-                            if (values.includes(2)) return 'Female';
-                            return 'Unknown';
-                        })()
-                    };
-
-                    setCampaignData(prev => ({
-                        ...prev,
-                        campaign_audience_age_range: campaignAudience.age_range,
-                        campaign_audience_countries: campaignAudience.countries,
-                        campaign_audience_gender: campaignAudience.gender
-                    }));
-
-                    const mergedData = mergeAdsetsWithCreatives(adsets_ads, ads_creative);
-                    setCombinedAds(mergedData);
-                    // console.log('Campaign Data:', mergedData);
-                } else {
-                    toast.error('Error loading campaign data.');
-                }
-            } catch (error) {
-                console.error('Error fetching campaign details:', error);
-                toast.error(
-                    error.response?.data?.message || 'Failed to fetch campaign details'
-                );
-            }
-        };
+        }      
 
         fetchCampaignDetails();
     }, [campaignID]);
+
+    const fetchCampaignDetails = async () => {
+        const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+        const storedToken = localStorage.getItem('authToken');
+
+        try {
+            const response = await axios.post(
+                `${BACKEND_URL}/api/campaign-ads-details`,
+                { campaignId: campaignID, socialUserId: socialUserID },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${storedToken}`
+                    }
+                }
+            );
+            if (response.data.success) {
+                const { campaign, adsets, adsets_ads, ads_creative, ad_account } = response.data.data;
+                // const activeAdsets = adsets.filter(item => item.adsets_status === 'ACTIVE');
+
+                // const campaign_custom_lifetime_budget = activeAdsets.reduce((total, item) => {
+                //     const lifetime = Number(item.adsets_lifetime_budget) || 0;
+                //     const daily = Number(item.adsets_daily_budget) || 0;
+                //     const spend = Number(item.adsets_insights_spend) || 0;
+
+                //     const budget = lifetime > 0
+                //         ? lifetime
+                //         : (daily > 0 ? daily : spend); // fallback to spend if both budgets are 0
+
+                //     return total + budget;
+                // }, 0);
+
+                // const campaign_custom_daily_budget = activeAdsets.reduce((total, item) => {
+                //     const daily = Number(item.adsets_daily_budget) || 0;
+                //     const lifetime = Number(item.adsets_lifetime_budget) || 0;
+                //     const spend = Number(item.adsets_insights_spend) || 0;
+
+                //     const budget = daily > 0
+                //         ? daily
+                //         : (lifetime > 0 ? 0 : spend); // use spend only if both are 0
+
+                //     return total + budget;
+                // }, 0);
+
+                // // Append these to the campaign object
+                // const updatedCampaign = {
+                //     ...campaigns,
+                //     campaign_custom_lifetime_budget,
+                //     campaign_custom_daily_budget
+                // };
+                setCampaignData(campaign);
+                setAdsets(adsets);
+                setAdsetsAds(adsets_ads);
+                setAdsCreatives(ads_creative);
+                setSelectAdPlatform(ad_account);
+                // console.log("UpdatedCampaignData:", updatedCampaign);
+
+                const uniqueCountries = [...new Set(adsets.map(item => item.adsets_countries).filter(Boolean))];
+                const uniqueGenders = [...new Set(adsets.map(item => item.adsets_genders).filter(g => g !== null && g !== undefined))];
+
+                const minAge = Math.min(...adsets.map(a => Number(a.adsets_age_min) || 0));
+                const maxAge = Math.max(...adsets.map(a => Number(a.adsets_age_max) || 0));
+
+                const campaignAudience = {
+                    age_range: `${minAge} - ${maxAge}`,
+                    countries: uniqueCountries.join(', ') || 'N/A',
+                    gender: (() => {
+                        const values = uniqueGenders;
+                        if (values.includes(0)) return 'All';
+                        if (values.includes(1)) return 'Male';
+                        if (values.includes(2)) return 'Female';
+                        return 'Unknown';
+                    })()
+                };
+
+                setCampaignData(prev => ({
+                    ...prev,
+                    campaign_audience_age_range: campaignAudience.age_range,
+                    campaign_audience_countries: campaignAudience.countries,
+                    campaign_audience_gender: campaignAudience.gender
+                }));
+
+                const mergedData = mergeAdsetsWithCreatives(adsets_ads, ads_creative);
+                setCombinedAds(mergedData);
+                // console.log('Campaign Data:', mergedData);
+            } else {
+                toast.error(`Error loading campaign data.`, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    autoClose: true,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    theme: "colored",
+                });               
+            }
+        } catch (error) {
+            //console.error('Error fetching campaign details:', error);
+            toast.error(`${error.response?.data?.message || 'Failed to fetch campaign details'}`, {
+                position: 'top-right',
+                autoClose: 5000,
+                autoClose: true,
+                hideProgressBar: false,
+                closeOnClick: true,
+                theme: "colored",
+            }); 
+            // toast.error(
+            //     error.response?.data?.message || 'Failed to fetch campaign details'
+            // );
+        }
+    };
 
     const mergeAdsetsWithCreatives = (adsetsAds = [], adsCreatives = []) => {
         return adsetsAds.map(ad => {
@@ -202,9 +361,14 @@ export default function AdCampaignDetailPage() {
         // You can pass the row data to the modal if needed
     }
 
-    const handleDelete = (data, row) => {
-        console.log('Delete clicked:', row);
-    }
+    const handleDelete = (dataType, row) => {
+        //console.log('Delete clicked:', row);        
+        setDataToDelete({ 
+            deleteType: dataType, 
+            deleteData: row
+        });           
+        setDataDeleteModal(true);        
+    }    
 
     const handleCloseModal = () => {
         setShowEditModal(false);
@@ -304,28 +468,50 @@ export default function AdCampaignDetailPage() {
             filter: false,
             sort: 'asc',
             width: 150,
-            cellRenderer: (params) => (
-                <div className="d-flex align-items-center justify-content-center my-2">
-                    <div className="form-check form-switch d-flex align-items-center justify-content-center">
-                        <input className="form-check-input" type="checkbox" role="switch" id={`status-switch-${params.data.id}`}
-                            checked={params.value === 'ACTIVE'}
-                            onChange={(e) => {
-                                e.stopPropagation(); // prevent grid row selection
-                                const newStatus = e.target.checked ? 'ACTIVE' : 'PAUSED';
-                                handleAdsetsToggleStatus(params.data, newStatus);
-                            }}
-                        />
-                        <label className="form-check-label ms-2 my-auto" htmlFor={`status-switch-${params.data.id}`} style={{ fontSize: '0.8rem', lineHeight: '1.2' }} >
-                            <span className={`badge ${params.value === 'ACTIVE' ? 'bg-success' : 'bg-secondary'}`}>
-                                {params.value === 'ACTIVE' ? 'Active' : 'Paused'}
-                            </span>
-                        </label>
+            cellRenderer: (params) => {
+                const isLoading = loadingRowId === params.data.id;
+                return (
+                    <div className="d-flex align-items-center justify-content-center my-2">
+                        {isLoading ? (
+                            <>
+                                <i className="fas fa-spin fa-spinner" style={{ fontSize: '15px',marginRight:'5px' }}></i> wait... 
+                            </>
+                        ) : (
+                            <div className="form-check form-switch d-flex align-items-center justify-content-center">
+                                <input className="form-check-input" type="checkbox" role="switch" id={`status-switch-${params.data.id}`}
+                                    checked={params.value === 'ACTIVE'}                            
+                                    onChange={async (e) => {
+                                        e.stopPropagation(); // prevent grid row selection
+                                        const newStatus = e.target.checked ? 'ACTIVE' : 'PAUSED';                                
+                                        const success = await handleAdsetsToggleStatus(params.data, newStatus);     
+                                        if (!success) {                                    
+                                            params.api.refreshCells({
+                                                rowNodes: [params.node],
+                                                force: true
+                                            });
+                                            return;
+                                        } 
+                                        params.api.applyTransaction({
+                                            update: [{
+                                                ...params.data,
+                                                adsets_status: newStatus
+                                            }]
+                                        });                                                                
+                                    }}
+                                />
+                                <label className="form-check-label ms-2 my-auto" htmlFor={`status-switch-${params.data.id}`} style={{ fontSize: '0.8rem', lineHeight: '1.2' }} >
+                                    <span className={`badge ${params.value === 'ACTIVE' ? 'bg-success' : 'bg-secondary'}`}>
+                                        {params.value === 'ACTIVE' ? 'Active' : 'Paused'}
+                                    </span>
+                                </label>
+                            </div>
+                        )}
+                        {params.value === 'COMPLETED' &&
+                            <span className="text-success" style={{ lineHeight: '1.2', width: '100%', textAlign: 'center' }}>✔ Completed</span>
+                        }
                     </div>
-                    {params.value === 'COMPLETED' &&
-                        <span className="text-success" style={{ lineHeight: '1.2', width: '100%', textAlign: 'center' }}>✔ Completed</span>
-                    }
-                </div>
-            )
+                )
+            }
         },
         {
             headerName: 'Start Date',
@@ -760,30 +946,53 @@ export default function AdCampaignDetailPage() {
             width: 150,
             cellRenderer: (params) => {
                 const isActive = params.value === 'ACTIVE';
-
+                const isLoading = loadingRowId === params.data.id;
                 return (
-                    <div className="form-check form-switch d-flex align-items-center justify-content-center">
-                        <input
-                            className={`form-check-input ${isActive ? 'switch-active' : 'switch-paused'}`}
-                            type="checkbox"
-                            role="switch"
-                            id={`status-switch-${params.data.id}`}
-                            checked={isActive}
-                            onChange={(e) => {
-                                e.stopPropagation();
-                                const newStatus = e.target.checked ? 'ACTIVE' : 'PAUSED';
-                                handleAdsToggleStatus(params.data, newStatus);
-                            }}
-                        />
-                        <label
-                            className="form-check-label ms-2 my-auto"
-                            htmlFor={`status-switch-${params.data.id}`}
-                            style={{ fontSize: '0.8rem' }}
-                        >
-                            <span className={`badge ${isActive ? 'bg-success' : 'bg-secondary'}`}>
-                                {isActive ? 'Active' : 'Paused'}
-                            </span>
-                        </label>
+                    <div className="d-flex align-items-center justify-content-center my-2">
+                        {isLoading ? (
+                            <>
+                                <i className="fas fa-spin fa-spinner" style={{ fontSize: '15px',marginRight:'5px' }}></i> wait... 
+                            </>
+                        ) : (
+                            <div className="form-check form-switch d-flex align-items-center justify-content-center">
+                                <input
+                                    className={`form-check-input ${isActive ? 'switch-active' : 'switch-paused'}`}
+                                    type="checkbox"
+                                    role="switch"
+                                    id={`status-switch-${params.data.id}`}
+                                    checked={isActive}
+                                    onChange={async (e) => {
+                                        e.stopPropagation();
+                                        const newStatus = e.target.checked ? 'ACTIVE' : 'PAUSED';
+                                        const success = await handleAdsToggleStatus(params.data, newStatus);
+                                        if (!success) {                                    
+                                            params.api.refreshCells({
+                                                rowNodes: [params.node],
+                                                force: true
+                                            });
+                                            return;
+                                        }
+
+                                        // ✅ API SUCCESS — update AG-Grid row
+                                        params.api.applyTransaction({
+                                            update: [{
+                                                ...params.data,
+                                                ads_status: newStatus
+                                            }]
+                                        }); 
+                                    }}
+                                />
+                                <label
+                                    className="form-check-label ms-2 my-auto"
+                                    htmlFor={`status-switch-${params.data.id}`}
+                                    style={{ fontSize: '0.8rem' }}
+                                >
+                                    <span className={`badge ${isActive ? 'bg-success' : 'bg-secondary'}`}>
+                                        {isActive ? 'Active' : 'Paused'}
+                                    </span>
+                                </label>
+                            </div>
+                        )}
                     </div>
                 );
             }
@@ -1066,6 +1275,115 @@ export default function AdCampaignDetailPage() {
         return new Intl.NumberFormat(locale).format(number);
     };
 
+    const handleDeleteSubmit = async (e) => {
+        e.preventDefault();
+        setDeleting(true);
+        //console.log('dataToDelete: ', dataToDelete);
+        const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+        const authToken = localStorage.getItem('authToken');
+        
+        try {
+            let payload = {};
+            if(dataToDelete.deleteType === 'adset'){
+                payload = { 
+                    deleteType: "adset",               
+                    ids: dataToDelete.deleteData?.id,
+                    socialUserid:dataToDelete.deleteData?.account_social_userid,
+                    campaign: dataToDelete.deleteData?.adsets_campaign_id,
+                    adsetsID: dataToDelete.deleteData?.adsets_id,                    
+                };
+            } else if(dataToDelete.deleteType === 'ads'){
+                payload = { 
+                    deleteType: "ads",               
+                    ids: dataToDelete.deleteData?.id,
+                    socialUserid:dataToDelete.deleteData?.account_social_userid,
+                    campaign: dataToDelete.deleteData?.campaign_id,
+                    adsetsID: dataToDelete.deleteData?.ads_id,
+                };
+            }
+
+            const responseData = await fetch(`${BACKEND_URL}/api/delete-adsets-ads`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const response = await responseData.json();
+            if(response.success===true){                
+                // if(dataToDelete.deleteType === 'adset'){
+                //     setAdsets((prevAdsets) => {
+                //         if (!prevAdsets) return [];
+                //             return prevAdsets.filter(
+                //             (adsets) => adsets.adsets_id !== dataToDelete.deleteData?.adsets_id
+                //         );
+                //     });
+                    
+                //     // const [combinedAds, setCombinedAds] = useState(null);
+                //     setCombinedAds((prevAds) => {
+                //         if (!prevAds) return [];
+                //             return prevAds.filter(
+                //             (prevAds) => prevAds.adsets_id !== dataToDelete.deleteData?.adsets_id
+                //         );
+                //     });
+                // } else if(dataToDelete.deleteType === 'ads'){
+                //     setCombinedAds((prevAdss) => {
+                //         if (!prevAdss) return [];
+                //             return prevAdss.filter(
+                //             (prevAdss) => prevAdss.ads_id !== dataToDelete.deleteData?.ads_id
+                //         );
+                //     });                 
+                //     setAdsetsAds((prevAds) => {
+                //         if (!prevAds) return [];
+                //             return prevAds.filter(
+                //             (prevAds) => prevAds.ads_id !== dataToDelete.deleteData?.ads_id
+                //         );
+                //     });
+                // }          
+                await fetchCampaignDetails();
+                setDataDeleteModal(false);
+                setDeleting(false);
+                setDataToDelete({ 
+                    deleteType: '', 
+                    deleteData: null
+                });                
+            } else if(response.success===false){
+                setDeleting(false);
+                toast.error(`${response.message}`, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    autoClose: true,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    theme: "colored",
+                });
+            } else {
+                setDeleting(false);
+                toast.error(`Internal server error.`, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    autoClose: true,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    theme: "colored",
+                });
+            }
+        } catch (err) {
+            console.error("Deletion failed:", err);
+            setDeleting(false);            
+            toast.error(`Failed to delete ${dataToDelete.deleteType}.`, {
+                position: 'top-right',
+                autoClose: 5000,
+                autoClose: true,
+                hideProgressBar: false,
+                closeOnClick: true,
+                theme: "colored",
+            });
+        }        
+    };
+
     return (
         <div className="page-wrapper compact-wrapper" >
             <Header />
@@ -1126,8 +1444,14 @@ export default function AdCampaignDetailPage() {
                                             </>
                                         )}
                                     </div> */}
-                                   <div className="d-flex justify-content-end"><button type="button" class="btn btn-hover-effect btn-primary 
- d-flex align-items-center justify-content-center"><i className="fa-solid fa-plus fs-5 me-2"></i> Create ad campaign</button></div>
+                                   <div className="d-flex justify-content-end">
+                                        <button 
+                                            type="button" 
+                                            className="btn btn-hover-effect btn-primary d-flex align-items-center justify-content-center"
+                                        >
+                                            <i className="fa-solid fa-plus fs-5 me-2"></i> Create ad campaign
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1177,43 +1501,51 @@ export default function AdCampaignDetailPage() {
                                                                 
                                                             {/* active btn  */}
                                                              <div className=" my-2">
-                                        {CampaignData && (
-                                            <>
-                                                {(CampaignData.campaign_effective_status === 'ACTIVE' || CampaignData.campaign_effective_status === 'PAUSED') && (
-                                                    <div className="form-check form-switch d-flex justify-content-end">
-                                                        <input
-                                                            className="form-check-input"
-                                                            type="checkbox"
-                                                            role="switch"
-                                                            id={`status-switch-${CampaignData.campaign_id}`}
-                                                            checked={CampaignData.campaign_effective_status === 'ACTIVE'}
-                                                            onChange={(e) => {
-                                                                e.stopPropagation(); // prevent grid row selection
-                                                                const newStatus = e.target.checked ? 'ACTIVE' : 'PAUSED';
-                                                                handleCampaignToggleStatus(CampaignData, newStatus);
-                                                            }}
-                                                        />
-                                                        <label
-                                                            className="form-check-label ms-2"
-                                                            htmlFor={`status-switch-${CampaignData.campaign_id}`}
-                                                            style={{ fontSize: '0.8rem', lineHeight: '1.2' }}
-                                                        >
-                                                            <span className={`badge ${CampaignData.campaign_effective_status === 'ACTIVE' ? 'bg-success' : 'bg-secondary'}`}>
-                                                                {CampaignData.campaign_effective_status === 'ACTIVE' ? 'Active' : 'Paused'}
-                                                            </span>
-                                                        </label>
-                                                    </div>
-                                                )}
+                                                                {CampaignData && (
+                                                                    <>
+                                                                        {(CampaignData.campaign_effective_status === 'ACTIVE' || CampaignData.campaign_effective_status === 'PAUSED') && (
+                                                                            <>
+                                                                                {loadingRowId ? ( 
+                                                                                    <>                                                                          
+                                                                                        <i className="fas fa-spin fa-spinner" style={{ fontSize: '15px',marginRight:'5px' }}></i> wait... 
+                                                                                    </>                                                                           
+                                                                                ) : (   
+                                                                                    <div className="form-check form-switch d-flex justify-content-end">
+                                                                                        <input
+                                                                                            className="form-check-input"
+                                                                                            type="checkbox"
+                                                                                            role="switch"
+                                                                                            id={`status-switch-${CampaignData.campaign_id}`}
+                                                                                            checked={CampaignData.campaign_effective_status === 'ACTIVE'}
+                                                                                            onChange={ async (e) => {
+                                                                                                e.stopPropagation(); // prevent grid row selection
+                                                                                                const newStatus = e.target.checked ? 'ACTIVE' : 'PAUSED';
+                                                                                                const success = await handleCampaignToggleStatus(CampaignData, newStatus);
+                                                                                            }}
+                                                                                        />
+                                                                                        <label
+                                                                                            className="form-check-label ms-2"
+                                                                                            htmlFor={`status-switch-${CampaignData.campaign_id}`}
+                                                                                            style={{ fontSize: '0.8rem', lineHeight: '1.2' }}
+                                                                                        >
+                                                                                            <span className={`badge ${CampaignData.campaign_effective_status === 'ACTIVE' ? 'bg-success' : 'bg-secondary'}`}>
+                                                                                                {CampaignData.campaign_effective_status === 'ACTIVE' ? 'Active' : 'Paused'}
+                                                                                            </span>
+                                                                                        </label>
+                                                                                    </div>
+                                                                                )}
+                                                                            </>
+                                                                        )}
 
-                                                {CampaignData.campaign_effective_status === 'COMPLETED' && (
-                                                    <span className="text-success text-end w-100" style={{ lineHeight: '1.2' }}>
-                                                        ✔ Completed
-                                                    </span>
-                                                )}
+                                                                        {CampaignData.campaign_effective_status === 'COMPLETED' && (
+                                                                            <span className="text-success text-end w-100" style={{ lineHeight: '1.2' }}>
+                                                                                ✔ Completed
+                                                                            </span>
+                                                                        )}
 
-                                            </>
-                                        )}
-                                    </div>
+                                                                    </>
+                                                                )}
+                                                            </div>
 
                                                             {/* active btn  */}
 
@@ -1403,7 +1735,7 @@ export default function AdCampaignDetailPage() {
                                                                                 background: "linear-gradient(to right, rgba(239,246,255,0.6), rgba(236,254,255,0.6))"
                                                                             }}>
                                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none"
-                                                                                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                                                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                                                                                     className="text-primary mx-auto">
                                                                                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                                                                                     <circle cx="9" cy="7" r="4" />
@@ -1750,17 +2082,12 @@ export default function AdCampaignDetailPage() {
                                                                                 </h6>
                                                                                 <p className="text-muted mb-0" style={{ fontSize: '12px' }}>Saves</p>
                                                                             </div>
-
-
-
                                                                         </div>
                                                                     </div>
-
-
                                                                     {/* <div className="col-md-1 card p-2 text-center">
                                                                         <div className='performance-metrics-card'>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none"
-                                                                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                                                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                                                                                 className="mb-2 text-primary mx-auto">
                                                                                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                                                                                 <circle cx="9" cy="7" r="4" />
@@ -1781,7 +2108,7 @@ export default function AdCampaignDetailPage() {
                                                                     <div className="col-md-2 card p-2 text-center">
                                                                         <svg xmlns="http://www.w3.org/2000/svg"
                                                                             className="mb-2 text-warning mx-auto" width="24" height="24" fill="none" stroke="currentColor"
-                                                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                                             <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
                                                                         </svg>
 
@@ -1801,7 +2128,7 @@ export default function AdCampaignDetailPage() {
                                                                     <div className="col-md-2 card card-body mx-2 text-center">
                                                                         <svg xmlns="http://www.w3.org/2000/svg"
                                                                             className="mb-2 text-success mx-auto" width="24" height="24" fill="none" stroke="currentColor"
-                                                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                                             <path d="M3 3h18v18H3z" />
                                                                             <path d="M8 14l3-3 2 2 4-4" />
                                                                         </svg>
@@ -1811,7 +2138,7 @@ export default function AdCampaignDetailPage() {
                                                                     <div className="col-md-2 card card-body mx-2 text-center">
                                                                         <svg xmlns="http://www.w3.org/2000/svg"
                                                                             className="mb-2 text-rose mx-auto" width="24" height="24" fill="none" stroke="currentColor"
-                                                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                                             <circle cx="12" cy="12" r="10" />
                                                                             <circle cx="12" cy="12" r="4" />
                                                                         </svg>
@@ -1821,7 +2148,7 @@ export default function AdCampaignDetailPage() {
                                                                     <div className="col-md-2 card card-body mx-2 text-center">
                                                                         <svg xmlns="http://www.w3.org/2000/svg"
                                                                             className="mb-2 text-info mx-auto" width="24" height="24" fill="none" stroke="currentColor"
-                                                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                                             <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z" />
                                                                             <circle cx="12" cy="12" r="3" />
                                                                         </svg>
@@ -1920,6 +2247,7 @@ export default function AdCampaignDetailPage() {
                                                                             resizable: true,
                                                                             filter: true
                                                                         }}
+                                                                        getRowId={(params) => params.data.id.toString()}
                                                                         getRowClass={(params) => {
                                                                             return params.node.rowIndex % 2 === 0 ? 'table-row-striped' : '';
                                                                         }}
@@ -1930,7 +2258,7 @@ export default function AdCampaignDetailPage() {
                                                                     />
                                                                 </div>
                                                                 {actionMenu.visible && (
-                                                                    <div className="dropdown-menu show"
+                                                                    <div className="dropdown-menu show p-2 rounded-3 border-0"
                                                                         style={{
                                                                             position: 'fixed',
                                                                             top: actionMenu.y,
@@ -1944,10 +2272,10 @@ export default function AdCampaignDetailPage() {
                                                                         onClick={(e) => e.stopPropagation()}
                                                                         onMouseLeave={closeAdsetsActionMenu}
                                                                     >
-                                                                        <button className="dropdown-item" onClick={() => handleEdit('adset', actionMenu.data, CampaignData)}>
+                                                                        <button className="dropdown-item rounded-3 border-0 mb-1" onClick={() => handleEdit('adset', actionMenu.data, CampaignData)}>
                                                                             <i className="fas fa-pencil me-2"></i> &nbsp; Edit
                                                                         </button>
-                                                                        <button className="dropdown-item text-danger" onClick={() => handleDelete('adset', actionMenu.data)}>
+                                                                        <button className="dropdown-item text-danger rounded-3 border-0" onClick={() => handleDelete('adset', actionMenu.data)}>
                                                                             <i className="fas fa-trash me-2"></i> &nbsp; Delete
                                                                         </button>
                                                                     </div>
@@ -1966,6 +2294,7 @@ export default function AdCampaignDetailPage() {
                                                                             resizable: true,
                                                                             filter: true
                                                                         }}
+                                                                        getRowId={(params) => params.data.id.toString()}
                                                                         getRowClass={(params) => {
                                                                             return params.node.rowIndex % 2 === 0 ? 'table-row-striped' : '';
                                                                         }}
@@ -1976,7 +2305,7 @@ export default function AdCampaignDetailPage() {
                                                                     />
                                                                 </div>
                                                                 {actionMenu.visible && (
-                                                                    <div className="dropdown-menu show"
+                                                                    <div className="dropdown-menu show p-2 rounded-3 border-0"
                                                                         style={{
                                                                             position: 'fixed',
                                                                             top: actionMenu.y,
@@ -1990,10 +2319,10 @@ export default function AdCampaignDetailPage() {
                                                                         onClick={(e) => e.stopPropagation()}
                                                                         onMouseLeave={closeCreativeActionMenu}
                                                                     >
-                                                                        <button className="dropdown-item" onClick={() => handleEdit('ad', actionMenu.data)}>
+                                                                        <button className="dropdown-item rounded-3 border-0 mb-1" onClick={() => handleEdit('ad', actionMenu.data)}>
                                                                             <i className="fas fa-pencil me-2"></i> &nbsp; Edit
                                                                         </button>
-                                                                        <button className="dropdown-item text-danger" onClick={() => handleDelete('ad', actionMenu.data)}>
+                                                                        <button className="dropdown-item text-danger rounded-3 border-0 " onClick={() => handleDelete('ads', actionMenu.data)}>
                                                                             <i className="fas fa-trash me-2"></i> &nbsp; Delete
                                                                         </button>
                                                                     </div>
@@ -2023,7 +2352,42 @@ export default function AdCampaignDetailPage() {
                             </div>
                         </div>
                     </div>
-
+                    {/* Delete confirmation modal */}
+                        {dataDeleteModal && dataToDelete && (
+                            <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                                <div className="modal-content" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', maxWidth: '600px', width: '100%' }}>
+                                    <h5>Delete confirmation</h5>
+                                    <hr />
+                                    <p className="mb-2">
+                                        <span className='text-danger'>Are you sure you want to delete {dataToDelete.deleteType}:</span> <strong>"{dataToDelete.deleteType === 'adset'
+                                            ? dataToDelete.deleteData?.adsets_name
+                                            : dataToDelete.deleteType === 'ads'
+                                            ? dataToDelete.deleteData?.ads_name
+                                            : ''}
+                                        "</strong>?
+                                    </p>                          
+                                    
+                                    <form onSubmit={handleDeleteSubmit}>
+                                        <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                                            <button type="button" className="btn btn-secondary" onClick={() => setDataDeleteModal(false)} disabled={deleting}>
+                                                Cancel
+                                            </button>
+                                            <button type="submit" className="btn btn-danger" disabled={deleting}>
+                                                {deleting ? (
+                                                    <div className="spinner-border spinner-border-sm text-light" role="status">
+                                                        <span className="visually-hidden">Deleting...</span>
+                                                    </div>
+                                                ) : (
+                                                    "Delete"
+                                                )}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )} 
+                    {/* Delete confirmation modal */}
                 </div>
                 <Footer />
             </div>

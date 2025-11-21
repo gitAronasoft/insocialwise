@@ -21,6 +21,7 @@ import PlatformStepLoader from './components/PlatformStepLoader';
 import queryString from 'query-string';
 import { encryptToken } from './utils/encryption';
 import { decryptToken } from './utils/decryption';
+import SocialScoreComponent from './components/SocialScoreComponent';
 dayjs.extend(relativeTime);
 
 export default function Dashboard() {
@@ -63,7 +64,21 @@ export default function Dashboard() {
   const [linkedInPages, setLinkedInPages] = useState([]);
   const [linkedInProfile, setLinkedInProfile] = useState([]);
   const [selectedPages, setSelectedPages] = useState([]);
+  const [socialScores, setSocialScore] = useState(null);
+  const [socialScoreLoading, setSocialScoreLoading] = useState(false);
+  const [socialScoreSteps] = useState([
+    "Checking connected accounts",
+    "Computing performance metrics",
+    "Preparing recommendations",
+    "Done"
+  ]);
+  const [socialScoreStepIndex, setSocialScoreStepIndex] = useState(0);
   const linkedinHandledRef = useRef(false);
+  const scrollToAddPlatform = useRef(null);
+
+  const scrollToConnectPlatform = () => {
+    scrollToAddPlatform.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const responsive = {
     desktop: {
@@ -1017,38 +1032,38 @@ export default function Dashboard() {
     setHasInteracted(false);       
     setTrendingTopicList([]);
     try {
-      // const response = await axios.post('https://n8n.socialwize.in/webhook/get-topics',
-      //     {
-      //       topic: trendingTopic
-      //     }
-      // );
+      const response = await axios.post('https://n8n.insocialwise.com/webhook/get-topics',
+          {
+            topic: trendingTopic
+          }
+      );
       setTrendingTopicLoading(false);
-      // setTrendingTopicList(response.data.output.topics);
+      setTrendingTopicList(response.data.output.topics);
       // console.log('Received trending topics:', response); 
 
-      setTrendingTopicList([
-            {
-              "title": "The Future of [Specific Software Category]",
-              "description": "Explore emerging trends in a specific software category relevant to the company (e.g., \"The Future of Cloud Computing,\" \"The Future of AI-Powered Marketing Software\"). Discuss market predictions, new technologies, and how these changes will impact businesses and users."
-            },
-            {
-              "title": "Behind the Code: A Day in the Life",
-              "description": "Offer a behind-the-scenes look at the company culture and development process. Showcasing employee stories, office life, and the challenges and triumphs of software creation can increase engagement. This could include Instagram stories, short LinkedIn videos, or Facebook live Q&As with developers."
-            },
-            {
-              "title": "Software Solutions for [Industry] Challenges",
-              "description": "Create content focusing on how the company's software solves specific problems within a particular industry. This could involve case studies, webinars, or blog posts demonstrating the software's value proposition."
-            },
-            {
-              "title": "Productivity Hacks & Software Tips",
-              "description": "Provide valuable, actionable advice and tips for using the software effectively. This can include tutorials, how-to guides, and quick tips on maximizing efficiency, driving user engagement."
-            },
-            {
-              "title": "The Evolution of [Company's Software Product]",
-              "description": "Highlight updates, new features, and the product's development journey. This is a great way to keep current users informed and attract potential customers."
-            }
-          ]
-      );
+      // setTrendingTopicList([
+      //       {
+      //         "title": "The Future of [Specific Software Category]",
+      //         "description": "Explore emerging trends in a specific software category relevant to the company (e.g., \"The Future of Cloud Computing,\" \"The Future of AI-Powered Marketing Software\"). Discuss market predictions, new technologies, and how these changes will impact businesses and users."
+      //       },
+      //       {
+      //         "title": "Behind the Code: A Day in the Life",
+      //         "description": "Offer a behind-the-scenes look at the company culture and development process. Showcasing employee stories, office life, and the challenges and triumphs of software creation can increase engagement. This could include Instagram stories, short LinkedIn videos, or Facebook live Q&As with developers."
+      //       },
+      //       {
+      //         "title": "Software Solutions for [Industry] Challenges",
+      //         "description": "Create content focusing on how the company's software solves specific problems within a particular industry. This could involve case studies, webinars, or blog posts demonstrating the software's value proposition."
+      //       },
+      //       {
+      //         "title": "Productivity Hacks & Software Tips",
+      //         "description": "Provide valuable, actionable advice and tips for using the software effectively. This can include tutorials, how-to guides, and quick tips on maximizing efficiency, driving user engagement."
+      //       },
+      //       {
+      //         "title": "The Evolution of [Company's Software Product]",
+      //         "description": "Highlight updates, new features, and the product's development journey. This is a great way to keep current users informed and attract potential customers."
+      //       }
+      //     ]
+      // );
       console.log("trending topics working.");               
     } catch (error) {
       console.error('Error triggering webhook:', error);
@@ -1063,7 +1078,9 @@ export default function Dashboard() {
   };
 
   function formatK(num) {
-    if (num >= 1000) {
+    if (num >= 1000000){
+      return (num / 1000000).toFixed(1) + "M";
+    } else if (num >= 1000) {
       return (num / 1000).toFixed(1) + "K";
     }
     return num;
@@ -1275,6 +1292,105 @@ export default function Dashboard() {
     }
   };
 
+  // useEffect(() => {
+  //   const fetchSocialScore = async () => {
+  //     const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+  //     try {
+  //       const res = await axios.get(`${BACKEND_URL}/api/social-media-score`,
+  //         {
+  //           headers: {
+  //             'Content-Type': 'application/json',
+  //             'Authorization': 'Bearer ' + localStorage.getItem('authToken'),
+  //           }
+  //         }
+  //       );
+  //       // console.log("response",res);
+  //       const Response = res.data.data;
+  //       if(Response.length > 0){
+  //         // console.log("Social Score Data: ", res.data.data);
+  //         setSocialScore(res.data.data);
+  //       }
+  //     } catch (err) {
+  //       console.error('Profile fetch failed:', err.response?.data || err.message);
+  //     }
+  //   }
+  //   fetchSocialScore();
+  // },[]);
+
+  useEffect(() => {
+    const BACKEND_URL = `${process.env.REACT_APP_BACKEND_URL}`;
+
+    let autoAdvanceTimer = null;
+    let autoAdvanceIntervalMs = 1400;
+
+    const fetchSocialScore = async () => {
+      setSocialScoreLoading(true);
+      setSocialScoreStepIndex(0);
+
+      // Start auto-advance so user sees step-by-step progress while waiting
+      autoAdvanceTimer = setInterval(() => {
+        setSocialScoreStepIndex(prev => {
+          // advance until the second last step; final step will be set when response arrives
+          if (prev < socialScoreSteps.length - 2) {
+            return prev + 1;
+          }
+          return prev;
+        });
+      }, autoAdvanceIntervalMs);
+
+      try {
+        const res = await axios.get(`${BACKEND_URL}/api/social-media-score`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('authToken'),
+          }
+        });
+
+        const Response = res.data.data;
+        console.log("response:",Response);
+
+        // stop auto advance immediately
+        if (autoAdvanceTimer) {
+          clearInterval(autoAdvanceTimer);
+          autoAdvanceTimer = null;
+        }
+
+        // Check if response is an empty object
+        const isEmptyObject = !Response || Object.keys(Response).length === 0;
+
+        if (!isEmptyObject) {
+          // We received an object with data → show the SocialScoreComponent
+          setSocialScoreStepIndex(socialScoreSteps.length - 1); // Done
+          setSocialScore(Response); 
+        } else {
+          // Empty object → show "Add a social account"
+          setSocialScore(null);
+          setSocialScoreStepIndex(0);
+        }
+      } catch (err) {
+        console.error('Social score fetch failed:', err.response?.data || err.message);
+        // On error show add-account UI
+        setSocialScore(null);
+        // stop timer
+        if (autoAdvanceTimer) {
+          clearInterval(autoAdvanceTimer);
+          autoAdvanceTimer = null;
+        }
+      } finally {
+        setSocialScoreLoading(false);
+      }
+    };
+
+    fetchSocialScore();
+
+    // cleanup on unmount
+    return () => {
+      if (autoAdvanceTimer) clearInterval(autoAdvanceTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
   return (
     <div className="page-wrapper compact-wrapper" >
         <Header/>
@@ -1292,7 +1408,7 @@ export default function Dashboard() {
                 </div>
               )}
 
-              <div className='row'> 
+              <div className='row' ref={scrollToAddPlatform}> 
                 <div className='col-md-12 col-xl-12'> 
                   <div className="grid-container animate-slide-up delay-1">
                     <div className="custom-grid-box">
@@ -1445,7 +1561,7 @@ export default function Dashboard() {
                                     </div>
                                     <button type="button" className='disconnect-btn' style={{ background: "transparent" }}
                                         onClick={(e) => { e.stopPropagation(); handleDisconnectClick(account); }} > 
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-unplug h-4 w-4"><path d="m19 5 3-3"></path><path d="m2 22 3-3"></path><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"></path><path d="M7.5 13.5 10 11"></path><path d="M10.5 16.5 13 14"></path><path d="m12 6 6 6 2.3-2.3a2.4 2.4 0 0 0 0-3.4l-2.6-2.6a2.4 2.4 0 0 0-3.4 0Z"></path></svg>
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-unplug h-4 w-4"><path d="m19 5 3-3"></path><path d="m2 22 3-3"></path><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"></path><path d="M7.5 13.5 10 11"></path><path d="M10.5 16.5 13 14"></path><path d="m12 6 6 6 2.3-2.3a2.4 2.4 0 0 0 0-3.4l-2.6-2.6a2.4 2.4 0 0 0-3.4 0Z"></path></svg>
                                     </button>
                                   </div>
 
@@ -1544,7 +1660,7 @@ export default function Dashboard() {
                                   Create a post to see your activity here.
                                 </h6>                                
                                 <Link to="/create-post" className='btn btn-hover-effect btn-primary d-flex align-items-center justify-content-center'>
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-plus pe-2"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus pe-2"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
                                   <span>Create post</span>
                                 </Link>
                               </div>
@@ -1725,7 +1841,7 @@ export default function Dashboard() {
                       </div>
                       <div className="d-flex"> 
                         <Link to="/analytics" className='custom-light-btn'>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-activity h-4 w-4 mr-1"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"></path></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-activity h-4 w-4 mr-1"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"></path></svg>
                           View Analytics 
                         </Link>&nbsp;
                         <span className="custom-light-btn">•••</span>
@@ -1738,24 +1854,24 @@ export default function Dashboard() {
               </div>
 
               <div className="row trending-topics">
-                <div className="col-12 col-md-12 col-xl-12 col-xxl-8 align-items-stretch">
+                <div className="col-12 col-md-12 col-lg-12 col-xl-12 col-xxl-8 align-items-stretch">
                   <div className="card w-100 mb-0"> 
 
                     <div className="card-body pb-0">
                       <div className="d-flex gap-3">
                         <div className="">
                           <div className="d-flex">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-flame h-6 w-6 mr-2 text-red-500"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-flame h-6 w-6 mr-2 text-red-500"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
                             <h5 className="ms-2">Trending Topics</h5>
                           </div>
                           <p className="mb-3 mt-1">Discover trending topics in your industry to create engaging content that resonates with your audience.</p>
                         </div>
                         {/* <Link to="javascript:void(0);" className='custom-light-btn'>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-hash h-4 w-4 mr-1"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-hash h-4 w-4 mr-1"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>
                           <span>All Categories</span>
                         </Link>
                         <Link to="javascript:void(0);" className='custom-light-btn'>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-trending-up h-4 w-4 mr-1"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trending-up h-4 w-4 mr-1"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
                           <span>Refresh</span>
                         </Link> */}
                       </div>
@@ -1803,7 +1919,7 @@ export default function Dashboard() {
                                         <button className="btn btn-hover-effect btn-primary btn-sm" onClick={() => handleCreateDraft(topic)}>
                                           <div className="d-flex gap-1">
                                             <div className="d-flex">
-                                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles h-4 w-4 mr-2">
+                                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles h-4 w-4 mr-2">
                                                 <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
                                                 <path d="M20 3v4"></path>
                                                 <path d="M22 5h-4"></path>
@@ -1855,7 +1971,7 @@ export default function Dashboard() {
                         </div>
                         <div className="d-flex"> 
                           <Link to="/analytics" className='custom-light-btn'>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-zap h-4 w-4 mr-1"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-zap h-4 w-4 mr-1"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path></svg>
                             Auto-Generate Posts
                           </Link>&nbsp;
                           <span className="custom-light-btn">•••</span>
@@ -1867,164 +1983,85 @@ export default function Dashboard() {
                 </div>
 
                 <div className="col-12 col-sm-12 col-md-12 col-xl-12 col-xxl-4 d-flex align-items-stretch custom-margin-top">
-                  {/* <div className="card">
-                    <div className="card-body d-flex align-items-center justify-content-center flex-column text-center" style={{height:325}}>
-                      <div className="align-middle">
-                        <h5> Social Proformance Score </h5>
-                        <div className="d-flex align-items-center justify-content-center flex-column text-center mt-2">
-                          <div className=""> 
-                            <p> Add a social account to unlock your personalized score and recommendations.</p> 
-                          </div>
-                          <div>
-                            <button className="btn btn-hover-effect btn-primary d-flex align-items-center justify-content-center my-3"> <i className="fa-solid fa-plus fs-5 me-2"></i> Add a social account </button>
-                          </div>
-                        </div>
-                      </div>                   
+                  {socialScoreLoading ? (
+                    <div>
+                      <h5 className="mb-3"> Social Performance Score </h5>
+
+                      <div style={{ width: '100%', maxWidth: 320 }}>
+                        {socialScoreSteps.map((step, idx) => {
+                          const isActive = idx === socialScoreStepIndex;
+                          const isDone = idx < socialScoreStepIndex;
+                          return (
+                            <div key={idx} className="d-flex align-items-center mb-2" style={{ gap: 12 }}>
+                              <div style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 999,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '2px solid',
+                                borderColor: isActive ? '#0d6efd' : (isDone ? '#10b981' : '#e5e7eb'),
+                                background: isActive ? '#e7f1ff' : (isDone ? '#ecfdf5' : '#fff'),
+                              }}>
+                                {isDone ? (
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                ) : isActive ? (
+                                  <div className="spinner-border spinner-border-sm text-primary" role="status" />
+                                ) : (
+                                  <div style={{ width: 8, height: 8, borderRadius: 4, background: '#e5e7eb' }} />
+                                )}
+                              </div>
+
+                              <div style={{ textAlign: 'left', flex: 1 }}>
+                                <div style={{ fontWeight: isActive ? 600 : 500 }}>{step}</div>
+                                <div style={{ fontSize: 12, color: '#6b7280' }}>
+                                  {isActive ? 'In progress...' : (isDone ? 'Completed' : 'Waiting')}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-3">
+                        <button onClick={(e) => { e.preventDefault(); scrollToConnectPlatform(); }}
+                          className="btn btn-hover-effect btn-primary d-flex align-items-center justify-content-center my-3"
+                        >
+                          <i className="fa-solid fa-plus fs-5 me-2"></i> Add a social account
+                        </button>
+                      </div>
                     </div>
-                  </div> */}
-                  <div className="card shadow-sm h-100 border-0 rounded-3 w-100">
-                    <div className="card-body p-4">
-                      <div className="d-flex justify-content-between align-items-center gap-2 mb-3">
-                        <div className="w-100">
-                          <h5 className="card-title mb-1 d-flex align-items-center fw-semibold text-dark">
-                            <div className="">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="me-2 text-primary">
-                                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
-                                <polyline points="16 7 22 7 22 13"></polyline>
-                              </svg>
-                            </div>
-                            <span>Social Performance Score</span>
-                          </h5>
-                          <small className="text-muted">Monitor your overall social media performance</small>
-                        </div>
-                        {/* <div className="w-100">
-                          <button className="btn btn-outline-primary btn-sm rounded-pill d-flex align-items-center">
-                            <div className="">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="me-1">
-                                <path d="M3 3v16a2 2 0 0 0 2 2h16"></path>
-                                <path d="M18 17V9"></path>
-                                <path d="M13 17V5"></path>
-                                <path d="M8 17v-3"></path>
-                              </svg>
-                            </div>
-                            <span>View Report</span>
-                          </button>
-                        </div> */}
-                      </div>
-
-                      <div className='social-performance-responsive'>   
-                        {/* Circular Score */}
-                        <div className="d-flex justify-content-center my-4">
-                          <div className="position-relative" style={{width: "150px", height: "150px"}}>
-                            <svg className="w-100 h-100 position-absolute top-0 start-0" viewBox="0 0 100 100" style={{transform: "rotate(-90deg)"}}>
-                              <circle cx="50" cy="50" r="40" stroke="#e9ecef" stroke-width="8" fill="none"></circle>
-                              <circle cx="50" cy="50" r="40" stroke="#32cd32" stroke-width="8" fill="none" stroke-dasharray="213.35 251"></circle>
-                            </svg>
-                            <div className="position-absolute top-50 start-50 translate-middle text-center">
-                              <div className="h2 fw-bold text-dark">85</div>
-                              <div className="small text-muted">Score</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Stats Grid */}
-                        <div className="row g-3 mb-4">
-                          <div className="col-12 col-sm-6">
-                            <div className="p-3 rounded d-flex align-items-center shadow ">
-                              <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #3b82f6, #8b5cf6)" }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users h-5 w-5 text-white"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  ) : (
+                    // After loading - either show add-account if socialScores is null/empty OR show Score component
+                    (socialScores && Object.keys(socialScores).length > 0) ? (
+                      <SocialScoreComponent socialScores={socialScores} />
+                    ) : (
+                      <div className="card">
+                        <div className="card-body d-flex align-items-center justify-content-center flex-column text-center" style={{height:325}}>
+                          <div className="align-middle">
+                            <h5> Social Proformance Score </h5>
+                            <div className="d-flex align-items-center justify-content-center flex-column text-center mt-2">
+                              <div className="">
+                                <p> Add a social account to unlock your personalized score and recommendations.</p>
                               </div>
                               <div>
-                                <div className="fw-semibold">+12.5%</div>
-                                <small className="text-muted">Follower Growth</small>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="col-12 col-sm-6">
-                            <div className="p-3 rounded d-flex align-items-center shadow ">
-                              <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #22c55e, #14b8a6)" }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-heart h-5 w-5 text-white"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
-                              </div>
-                              <div>
-                                <div className="fw-semibold">8.7%</div>
-                                <small className="text-muted">Engagement Rate</small>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="col-12 col-sm-6">
-                            <div className="p-3 rounded d-flex align-items-center shadow ">
-                              <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #a855f7, #ec4899)" }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-share2 h-5 w-5 text-white"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"></line><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"></line></svg>
-                              </div>
-                              <div>
-                                <div className="fw-semibold">234</div>
-                                <small className="text-muted">Shares This Week</small>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="col-12 col-sm-6">
-                            <div className="p-3 rounded d-flex align-items-center shadow ">
-                              <div className="d-flex p-2 rounded-4 me-2" style={{ background: "linear-gradient(to right, #f97316, #ef4444)" }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye h-5 w-5 text-white"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                              </div>
-                              <div>
-                                <div className="fw-semibold">45.2K</div>
-                                <small className="text-muted">Total Social Reach</small>
+                                <button 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    scrollToConnectPlatform();
+                                  }}
+                                  className="btn btn-hover-effect btn-primary d-flex align-items-center justify-content-center my-3"
+                                > 
+                                  <i className="fa-solid fa-plus fs-5 me-2"></i> Add a social account 
+                                </button>
                               </div>
                             </div>
                           </div>
                         </div>
-                       </div>     
-                      {/* Insights */}
-                      <h6 className="fw-semibold mb-3">Performance Insights</h6>
-                      <div className="d-flex align-items-center rounded py-2 mb-3" 
-                        style={{ 
-                          backgroundColor: "rgba(101, 193, 92, 0.1)", 
-                          borderColor: "rgba(101, 193, 92, 1)", 
-                          color: "rgba(101, 193, 92, 1)"
-                        }}>
-                        <div className="px-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up h-4 w-4">
-                            <path d="m5 12 7-7 7 7"></path>
-                            <path d="M12 19V5"></path>
-                          </svg>
-                        </div>
-                        <small>Your engagement rate increased by 15% this week</small>
                       </div>
-                      <div className="d-flex align-items-center rounded py-2 mb-3" 
-                        style={{
-                          backgroundColor: "rgba(115, 102, 255, 0.1)",
-                          borderColor: "rgba(115, 102, 255, 1)",
-                          color: "rgba(115, 102, 255, 1)"
-                        }}>
-                        <div className="px-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trending-up h-4 w-4">
-                            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
-                            <polyline points="16 7 22 7 22 13"></polyline>
-                          </svg>
-                        </div>
-                        <small>Best posting time: 2-4 PM on weekdays</small>
-                      </div>
-                      <div className="d-flex align-items-center rounded py-2 mb-3"
-                        style={{
-                          backgroundColor: "rgba(64, 184, 245, 0.1)",
-                          borderColor: "rgba(64, 184, 245, 1)",
-                          color: "rgba(64, 184, 245, 1)"
-                        }}>
-                        <small className="px-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles h-4 w-4">
-                            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
-                            <path d="M20 3v4"></path>
-                            <path d="M22 5h-4"></path>
-                            <path d="M4 17v2"></path>
-                            <path d="M5 18H3"></path>
-                          </svg>
-                        </small>
-                        <small>Video content performs 3x better than images</small>
-                      </div>
-
-                    </div>
-                  </div>
+                    )
+                  )}
                 </div>
               </div>                     
 
@@ -2035,7 +2072,7 @@ export default function Dashboard() {
                       <div className="d-flex align-items-center justify-content-between gap-2 mb-4">
                         <div className='d-flex flex-column'> 
                           <div className='d-flex gap-2'>
-                            <div style={{color: "#9333EA" }}> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-pen-line h-6 w-6 mr-2 text-purple-500"><path d="M12 20h9"></path><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path></svg>   </div>
+                            <div style={{color: "#9333EA" }}> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pen-line h-6 w-6 mr-2 text-purple-500"><path d="M12 20h9"></path><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path></svg>   </div>
                             <div>
                               <h5> Draft Posts</h5> 
                             </div>
@@ -2043,7 +2080,7 @@ export default function Dashboard() {
                           <div className='mt-1'> <p> Continue working on your saved draft content </p> </div>
                         </div>
                         <div>
-                          <Link to="/create-post" className='custom-light-btn'> <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-plus h-4 w-4 mr-1"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>  New Draft</Link>
+                          <Link to="/create-post" className='custom-light-btn'> <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus h-4 w-4 mr-1"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>  New Draft</Link>
                         </div>
                       </div>
                     
@@ -2087,7 +2124,7 @@ export default function Dashboard() {
                                               <HoverPostPreviewMultiple key={firstPost.postID} post={post} platform={firstPost.platform?.toLowerCase()} >
                                                 <div style={{ width: "90px", height: "90px", borderRadius: "8px", overflow: "hidden", position: "relative", }} >
                                                   <Carousel responsive={carouselResponsive} showDots={false} infinite={true} arrows={false} autoPlay={true} 
-                                                    containerClass="carousel-container" dotListClass="custom-dot-list-style" itemClass="carousel-item-padding-40-px" >
+                                                    containerclassName="carousel-container" dotListclassName="custom-dot-list-style" itemclassName="carousel-item-padding-40-px" >
                                                     {mediaArray.map((mediaItem, idx) => (
                                                       <div key={`${firstPost.postID}-${idx}`} style={{ width: "100%", height: "90px", position: "relative", overflow: "hidden", }} >
                                                         {mediaItem.type === "image" ? (
@@ -2214,13 +2251,13 @@ export default function Dashboard() {
                                 </div>
                                 <div>
                                   <span onClick={() => {handleEdit(post.form_id)} } className="btn draft-edit-btn btn-hover-effect ">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-pen-line h-4 w-4 mr-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pen-line h-4 w-4 mr-1">
                                       <path d="M12 20h9"></path>
                                       <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path>
                                     </svg> Edit 
                                   </span>
                                   {/* <Link to={{pathname: '/edit-post', search: `?asset_id=${post.postPageID}&ref=${post.postID}`}} className="btn draft-edit-btn btn-hover-effect ">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-pen-line h-4 w-4 mr-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pen-line h-4 w-4 mr-1">
                                       <path d="M12 20h9"></path>
                                       <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path>
                                     </svg> Edit 

@@ -77,7 +77,7 @@ const PlatformStepLoader = ({ platform = "Facebook", steps = [], onComplete }) =
                 </div>
               </div>
               <button className="btn btn-sm btn-light text-dark rounded-circle p-1 px-2" onClick={() => onComplete?.()} >
-                <i class="fa-solid fa-xmark"></i>
+                <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
             <div>
@@ -94,7 +94,7 @@ const PlatformStepLoader = ({ platform = "Facebook", steps = [], onComplete }) =
                 <div className="p-3 rounded-circle d-inline-flex align-items-center justify-content-center"
                     style={{ background: "rgb(34 218 101 / 21%)" }} >
                   <svg className="w-6 h-6 text-gray-800 dark:text-white text-success" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 11.917 9.724 16.5 19 7.5" />
+                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 11.917 9.724 16.5 19 7.5" />
                   </svg>
                 </div>
               {/* ) : (
@@ -115,9 +115,9 @@ const PlatformStepLoader = ({ platform = "Facebook", steps = [], onComplete }) =
               <div key={idx} className={`d-flex align-items-center gap-2 mb-1 alert-${stepColoursClass[idx % stepColoursClass.length]}`}
                   style={{padding: "10px", borderRadius: "8px"}}>
                 {completed > idx ? (
-                  // <i class="fa-solid fa-circle-check text-success"></i>
+                  // <i className="fa-solid fa-circle-check text-success"></i>
                   <div>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="icon icon-tabler icons-tabler-filled icon-tabler-circle-check text-success mt-1"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M17 3.34a10 10 0 1 1 -14.995 8.984l-.005 -.324l.005 -.324a10 10 0 0 1 14.995 -8.336zm-1.293 5.953a1 1 0 0 0 -1.32 -.083l-.094 .083l-3.293 3.292l-1.293 -1.292l-.094 -.083a1 1 0 0 0 -1.403 1.403l.083 .094l2 2l.094 .083a1 1 0 0 0 1.226 0l.094 -.083l4 -4l.083 -.094a1 1 0 0 0 -.083 -1.32z"></path></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="icon icon-tabler icons-tabler-filled icon-tabler-circle-check text-success mt-1"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M17 3.34a10 10 0 1 1 -14.995 8.984l-.005 -.324l.005 -.324a10 10 0 0 1 14.995 -8.336zm-1.293 5.953a1 1 0 0 0 -1.32 -.083l-.094 .083l-3.293 3.292l-1.293 -1.292l-.094 -.083a1 1 0 0 0 -1.403 1.403l.083 .094l2 2l.094 .083a1 1 0 0 0 1.226 0l.094 -.083l4 -4l.083 -.094a1 1 0 0 0 -.083 -1.32z"></path></svg>
                   </div>
                 ) : (
                   <div className="spinner-border spinner-border-sm" role="status"></div>
